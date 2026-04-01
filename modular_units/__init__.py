@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 29),
+    "version": (0, 1, 32),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -36,6 +36,21 @@ class MU_OT_add_rack(bpy.types.Operator):
         name="Units (U)",
         default=10,
         min=1,
+    )
+    rail_offset: bpy.props.FloatProperty(
+        name="Rail Offset (mm)",
+        default=30.0,
+        min=0.0,
+    )
+    rail_offset_front: bpy.props.FloatProperty(
+        name="Front Rail Offset (mm)",
+        default=30.0,
+        min=0.0,
+    )
+    rail_offset_back: bpy.props.FloatProperty(
+        name="Back Rail Offset (mm)",
+        default=30.0,
+        min=0.0,
     )
     front_rails: bpy.props.BoolProperty(
         name="Front Rails",
@@ -128,8 +143,8 @@ class MU_OT_add_rack(bpy.types.Operator):
         side_x_offset = (top_bottom_x * 0.5) - (side_x * 0.5) + 18.0
         inside_x_face_left = -((top_bottom_x * 0.5) - side_x)
         inside_x_face_right = (top_bottom_x * 0.5) - side_x
-        inside_y_face_front = -(top_bottom_y * 0.5)
-        inside_y_face_back = top_bottom_y * 0.5
+        inside_y_face_front = -(top_bottom_y * 0.5) + self.rail_offset_front
+        inside_y_face_back = (top_bottom_y * 0.5) - self.rail_offset_back
 
         selection = context.scene.mu_material
         if selection == "MU_CREATE_DEFAULT":
@@ -222,10 +237,14 @@ class MU_PT_panel(bpy.types.Panel):
         layout.label(text="Add Rack")
         layout.prop(context.scene, "mu_units")
         layout.prop(context.scene, "mu_material")
+        layout.prop(context.scene, "mu_rail_offset_front")
+        layout.prop(context.scene, "mu_rail_offset_back")
         layout.prop(context.scene, "mu_front_rails")
         layout.prop(context.scene, "mu_back_rails")
         op = layout.operator(MU_OT_add_rack.bl_idname, text="Create Rack")
         op.units = context.scene.mu_units
+        op.rail_offset_front = context.scene.mu_rail_offset_front
+        op.rail_offset_back = context.scene.mu_rail_offset_back
         op.front_rails = context.scene.mu_front_rails
         op.back_rails = context.scene.mu_back_rails
 
@@ -254,6 +273,16 @@ def register():
         items=mu_material_items,
         default=0,
     )
+    bpy.types.Scene.mu_rail_offset_front = bpy.props.FloatProperty(
+        name="Front Rail Offset (mm)",
+        default=30.0,
+        min=0.0,
+    )
+    bpy.types.Scene.mu_rail_offset_back = bpy.props.FloatProperty(
+        name="Back Rail Offset (mm)",
+        default=30.0,
+        min=0.0,
+    )
     bpy.types.Scene.mu_front_rails = bpy.props.BoolProperty(
         name="Front Rails",
         default=True,
@@ -269,6 +298,8 @@ def unregister():
     bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
     del bpy.types.Scene.mu_back_rails
     del bpy.types.Scene.mu_front_rails
+    del bpy.types.Scene.mu_rail_offset_back
+    del bpy.types.Scene.mu_rail_offset_front
     del bpy.types.Scene.mu_material
     del bpy.types.Scene.mu_units
     for cls in reversed(classes):
