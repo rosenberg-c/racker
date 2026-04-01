@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 32),
+    "version": (0, 1, 33),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -73,6 +73,8 @@ class MU_OT_add_rack(bpy.types.Operator):
         rail_wood_width = 30.0
         rail_rack_width = 21.0
         rail_outset = 18.0
+        hole_diameter = 7.1
+        hole_offsets = (6.35, 22.225, 38.1)
 
         total_height = (top_bottom_z * 2.0) + (self.units * unit_height)
         side_z = total_height
@@ -136,6 +138,46 @@ class MU_OT_add_rack(bpy.types.Operator):
             if rotation is not None:
                 wood.rotation_euler = rotation
                 rack.rotation_euler = rotation
+
+            rail_top_z = total_height - top_bottom_z
+            hole_radius = hole_diameter * 0.5
+            hole_depth = rail_thickness * 1.5
+            rotation_z = rotation[2] if rotation is not None else 0.0
+
+            holes = []
+            hole_index = 1
+            for unit_index in range(self.units):
+                base_z = rail_top_z - (unit_index * unit_height)
+                for offset in hole_offsets:
+                    hole_z = base_z - offset
+                    if hole_z < top_bottom_z or hole_z > rail_top_z:
+                        continue
+                    bpy.ops.mesh.primitive_cylinder_add(
+                        radius=hole_radius * mm_to_m,
+                        depth=hole_depth * mm_to_m,
+                        enter_editmode=False,
+                        align="WORLD",
+                        location=to_m((rack_loc[0], rack_loc[1], hole_z)),
+                        rotation=(0.0, math.radians(90.0), rotation_z),
+                    )
+                    hole_obj = context.active_object
+                    hole_obj.name = f"{name_prefix}_Hole_{hole_index}"
+                    holes.append(hole_obj)
+                    hole_index += 1
+
+            if holes:
+                for obj in holes:
+                    obj.select_set(True)
+                context.view_layer.objects.active = holes[0]
+                bpy.ops.object.join()
+                holes_obj = context.active_object
+                holes_obj.name = f"{name_prefix}_Holes"
+                holes_obj.display_type = "WIRE"
+                holes_obj.hide_render = True
+                holes_obj.hide_set(True)
+                modifier = rack.modifiers.new(name="MU_Holes", type="BOOLEAN")
+                modifier.operation = "DIFFERENCE"
+                modifier.object = holes_obj
 
         top_z = total_height - (top_bottom_z * 0.5)
         bottom_z = top_bottom_z * 0.5
