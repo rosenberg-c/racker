@@ -6,7 +6,7 @@ BLENDER_VERSION ?= 5.0
 BLENDER_ADDONS_DIR := $(HOME)/Library/Application Support/Blender/$(BLENDER_VERSION)/scripts/addons
 BLENDER_BIN ?= /Applications/Blender.app/Contents/MacOS/Blender
 
-.PHONY: zip bump-patch install clean-install clean
+.PHONY: zip bump-patch install clean-install restart-blender clean
 
 zip: bump-patch
 	@mkdir -p $(DIST_DIR)
@@ -41,3 +41,8 @@ clean-install: zip
 	@rm -rf "$(BLENDER_ADDONS_DIR)/$(PLUGIN_NAME)"
 	@unzip -o "$(ZIP_FILE)" -d "$(BLENDER_ADDONS_DIR)"
 	@"$(BLENDER_BIN)" --background --python-expr "import bpy; bpy.ops.preferences.addon_enable(module='$(PLUGIN_NAME)'); bpy.ops.wm.save_userpref()"
+
+restart-blender:
+	@pkill -f "Blender.app/Contents/MacOS/Blender" || true
+	@$(MAKE) install
+	@open -a Blender -n
