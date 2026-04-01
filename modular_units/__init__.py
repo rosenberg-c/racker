@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 33),
+    "version": (0, 1, 38),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -83,13 +83,35 @@ class MU_OT_add_rack(bpy.types.Operator):
         def to_m(values):
             return tuple(value * mm_to_m for value in values)
 
+        def ensure_collection(name):
+            if bpy.data.collections.get(name) is None:
+                collection = bpy.data.collections.new(name)
+                context.scene.collection.children.link(collection)
+                return collection
+
+            index = 2
+            while True:
+                candidate = f"{name}.{index}"
+                if bpy.data.collections.get(candidate) is None:
+                    collection = bpy.data.collections.new(candidate)
+                    context.scene.collection.children.link(collection)
+                    return collection
+                index += 1
+
+        def move_to_collection(obj, collection):
+            if obj.name not in collection.objects:
+                collection.objects.link(obj)
+            for existing in list(obj.users_collection):
+                if existing != collection:
+                    existing.objects.unlink(obj)
+
         def ensure_material(name):
             material = bpy.data.materials.get(name)
             if material is None:
                 material = bpy.data.materials.new(name=name)
             return material
 
-        def add_box(name, dimensions, location, material):
+        def add_box(name, dimensions, location, material, collection):
             bpy.ops.mesh.primitive_cube_add(
                 size=1.0,
                 enter_editmode=False,
@@ -99,6 +121,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             obj = context.active_object
             obj.name = name
             obj.dimensions = to_m(dimensions)
+            move_to_collection(obj, collection)
             if material is not None:
                 if obj.data.materials:
                     obj.data.materials[0] = material
@@ -128,16 +151,25 @@ class MU_OT_add_rack(bpy.types.Operator):
                 (rail_wood_width, rail_thickness, rail_length),
                 wood_loc,
                 None,
+                collection,
             )
             rack = add_box(
                 f"{name_prefix}_Rack",
                 (rail_thickness, rail_rack_width, rail_length),
                 rack_loc,
                 None,
+                collection,
             )
             if rotation is not None:
                 wood.rotation_euler = rotation
                 rack.rotation_euler = rotation
+
+            for obj in (wood, rack):
+                obj.select_set(True)
+            context.view_layer.objects.active = wood
+            bpy.ops.object.join()
+            rail = context.active_object
+            rail.name = name_prefix
 
             rail_top_z = total_height - top_bottom_z
             hole_radius = hole_diameter * 0.5
@@ -162,6 +194,7 @@ class MU_OT_add_rack(bpy.types.Operator):
                     )
                     hole_obj = context.active_object
                     hole_obj.name = f"{name_prefix}_Hole_{hole_index}"
+                    move_to_collection(hole_obj, collection)
                     holes.append(hole_obj)
                     hole_index += 1
 
@@ -172,12 +205,12 @@ class MU_OT_add_rack(bpy.types.Operator):
                 bpy.ops.object.join()
                 holes_obj = context.active_object
                 holes_obj.name = f"{name_prefix}_Holes"
-                holes_obj.display_type = "WIRE"
-                holes_obj.hide_render = True
-                holes_obj.hide_set(True)
-                modifier = rack.modifiers.new(name="MU_Holes", type="BOOLEAN")
+                modifier = rail.modifiers.new(name="MU_Holes", type="BOOLEAN")
                 modifier.operation = "DIFFERENCE"
                 modifier.object = holes_obj
+                context.view_layer.objects.active = rail
+                bpy.ops.object.modifier_apply(modifier=modifier.name)
+                bpy.data.objects.remove(holes_obj, do_unlink=True)
 
         top_z = total_height - (top_bottom_z * 0.5)
         bottom_z = top_bottom_z * 0.5
@@ -196,29 +229,35 @@ class MU_OT_add_rack(bpy.types.Operator):
             if material is None:
                 material = ensure_material(DEFAULT_MATERIAL_NAME)
 
+        collection = ensure_collection(f"MU_{self.units}")
+
         add_box(
             "MU_Top",
             (top_bottom_x, top_bottom_y, top_bottom_z),
             (0.0, 0.0, top_z),
             material,
+            collection,
         )
         add_box(
             "MU_Bottom",
             (top_bottom_x, top_bottom_y, top_bottom_z),
             (0.0, 0.0, bottom_z),
             material,
+            collection,
         )
         add_box(
             "MU_Side_Left",
             (side_x, side_y, side_z),
             (-side_x_offset, 0.0, side_z_center),
             material,
+            collection,
         )
         add_box(
             "MU_Side_Right",
             (side_x, side_y, side_z),
             (side_x_offset, 0.0, side_z_center),
             material,
+            collection,
         )
 
         if self.front_rails:
