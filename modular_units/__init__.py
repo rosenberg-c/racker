@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 38),
+    "version": (0, 1, 44),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -63,7 +63,7 @@ class MU_OT_add_rack(bpy.types.Operator):
 
     def execute(self, context):
         mm_to_m = 0.001
-        top_bottom_x = 487.0
+        top_bottom_x = 490.0
         top_bottom_y = 400.0
         top_bottom_z = 18.0
         side_x = 18.0
