@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 48),
+    "version": (0, 1, 50),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -12,6 +12,7 @@ import bpy
 import math
 import mathutils
 
+from .config import RackConfig
 from .geometry import (
     collection_name,
     rail_face_y_mm,
@@ -72,23 +73,11 @@ class MU_OT_add_rack(bpy.types.Operator):
     )
 
     def execute(self, context):
+        config = RackConfig()
         mm_to_m = 0.001
-        top_bottom_x = 490.0
-        top_bottom_y = 400.0
-        top_bottom_z = 18.0
-        side_x = 18.0
-        side_y = 400.0
-        unit_height = 44.45
-        rail_thickness = 2.0
-        rail_wood_width = 30.0
-        rail_rack_width = 21.0
-        rail_outset = 18.0
-        hole_diameter = 7.1
-        hole_offsets = (6.35, 22.225, 38.1)
-
-        total_height = total_height_mm(self.units, top_bottom_z, unit_height)
+        total_height = total_height_mm(self.units, config.top_bottom_z, config.unit_height)
         side_z = total_height
-        rail_length = rail_length_mm(total_height, top_bottom_z)
+        rail_length = rail_length_mm(total_height, config.top_bottom_z)
 
         def to_m(values):
             return tuple(value * mm_to_m for value in values)
@@ -132,11 +121,11 @@ class MU_OT_add_rack(bpy.types.Operator):
             return obj
 
         def add_rail(name_prefix, x_face, x_inward, y_face, y_inward, rotation=None):
-            wood_center_x = x_face + (rail_wood_width * 0.5 * x_inward)
-            rack_center_x = x_face + (rail_thickness * 0.5 * x_inward)
+            wood_center_x = x_face + (config.rail_wood_width * 0.5 * x_inward)
+            rack_center_x = x_face + (config.rail_thickness * 0.5 * x_inward)
 
-            wood_center_y = y_face + (rail_thickness * 0.5 * y_inward)
-            rack_center_y = y_face + (rail_rack_width * 0.5 * y_inward)
+            wood_center_y = y_face + (config.rail_thickness * 0.5 * y_inward)
+            rack_center_y = y_face + (config.rail_rack_width * 0.5 * y_inward)
 
             pivot = (x_face, y_face, side_z_center)
             wood_loc = (wood_center_x, wood_center_y, side_z_center)
@@ -150,14 +139,14 @@ class MU_OT_add_rack(bpy.types.Operator):
 
             wood = add_box(
                 f"{name_prefix}_Wood",
-                (rail_wood_width, rail_thickness, rail_length),
+                (config.rail_wood_width, config.rail_thickness, rail_length),
                 wood_loc,
                 None,
                 collection,
             )
             rack = add_box(
                 f"{name_prefix}_Rack",
-                (rail_thickness, rail_rack_width, rail_length),
+                (config.rail_thickness, config.rail_rack_width, rail_length),
                 rack_loc,
                 None,
                 collection,
@@ -173,13 +162,18 @@ class MU_OT_add_rack(bpy.types.Operator):
             rail = context.active_object
             rail.name = name_prefix
 
-            hole_radius = hole_diameter * 0.5
-            hole_depth = rail_thickness * 1.5
+            hole_radius = config.hole_diameter * 0.5
+            hole_depth = config.rail_thickness * 1.5
             rotation_z = rotation[2] if rotation is not None else 0.0
 
             holes = []
             hole_index = 1
-            for hole_z in rail_hole_zs_mm(self.units, top_bottom_z, unit_height, hole_offsets):
+            for hole_z in rail_hole_zs_mm(
+                self.units,
+                config.top_bottom_z,
+                config.unit_height,
+                config.hole_offsets,
+            ):
                 bpy.ops.mesh.primitive_cylinder_add(
                     radius=hole_radius * mm_to_m,
                     depth=hole_depth * mm_to_m,
@@ -208,17 +202,17 @@ class MU_OT_add_rack(bpy.types.Operator):
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
                 bpy.data.objects.remove(holes_obj, do_unlink=True)
 
-        top_z = total_height - (top_bottom_z * 0.5)
-        bottom_z = top_bottom_z * 0.5
+        top_z = total_height - (config.top_bottom_z * 0.5)
+        bottom_z = config.top_bottom_z * 0.5
         side_z_center = total_height * 0.5
-        side_x_offset = (top_bottom_x * 0.5) - (side_x * 0.5) + 18.0
+        side_x_offset = (config.top_bottom_x * 0.5) - (config.side_x * 0.5) + 18.0
         inside_x_face_left, inside_x_face_right = rail_x_faces_mm(
-            top_bottom_x,
-            side_x,
+            config.top_bottom_x,
+            config.side_x,
             0.0,
         )
         inside_y_face_front, inside_y_face_back = rail_face_y_mm(
-            top_bottom_y,
+            config.top_bottom_y,
             self.rail_offset_front,
             self.rail_offset_back,
         )
@@ -237,28 +231,28 @@ class MU_OT_add_rack(bpy.types.Operator):
 
         add_box(
             "MU_Top",
-            (top_bottom_x, top_bottom_y, top_bottom_z),
+            (config.top_bottom_x, config.top_bottom_y, config.top_bottom_z),
             (0.0, 0.0, top_z),
             material,
             collection,
         )
         add_box(
             "MU_Bottom",
-            (top_bottom_x, top_bottom_y, top_bottom_z),
+            (config.top_bottom_x, config.top_bottom_y, config.top_bottom_z),
             (0.0, 0.0, bottom_z),
             material,
             collection,
         )
         add_box(
             "MU_Side_Left",
-            (side_x, side_y, side_z),
+            (config.side_x, config.side_y, side_z),
             (-side_x_offset, 0.0, side_z_center),
             material,
             collection,
         )
         add_box(
             "MU_Side_Right",
-            (side_x, side_y, side_z),
+            (config.side_x, config.side_y, side_z),
             (side_x_offset, 0.0, side_z_center),
             material,
             collection,
@@ -267,7 +261,7 @@ class MU_OT_add_rack(bpy.types.Operator):
         if self.front_rails:
             add_rail(
                 "MU_Rail_Front_Left",
-                inside_x_face_left - rail_outset,
+                inside_x_face_left - config.rail_outset,
                 1.0,
                 inside_y_face_front,
                 -1.0,
@@ -275,7 +269,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             )
             add_rail(
                 "MU_Rail_Front_Right",
-                inside_x_face_right + rail_outset,
+                inside_x_face_right + config.rail_outset,
                 -1.0,
                 inside_y_face_front,
                 -1.0,
@@ -284,7 +278,7 @@ class MU_OT_add_rack(bpy.types.Operator):
         if self.back_rails:
             add_rail(
                 "MU_Rail_Back_Left",
-                inside_x_face_left - rail_outset,
+                inside_x_face_left - config.rail_outset,
                 1.0,
                 inside_y_face_back,
                 1.0,
@@ -292,7 +286,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             )
             add_rail(
                 "MU_Rail_Back_Right",
-                inside_x_face_right + rail_outset,
+                inside_x_face_right + config.rail_outset,
                 -1.0,
                 inside_y_face_back,
                 1.0,
