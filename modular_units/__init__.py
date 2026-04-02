@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 55),
+    "version": (0, 1, 57),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -88,13 +88,6 @@ class MU_OT_add_rack(bpy.types.Operator):
             context.scene.collection.children.link(collection)
             return collection
 
-        def move_to_collection(obj, collection):
-            if obj.name not in collection.objects:
-                collection.objects.link(obj)
-            for existing in list(obj.users_collection):
-                if existing != collection:
-                    existing.objects.unlink(obj)
-
         def ensure_material(name):
             material = bpy.data.materials.get(name)
             if material is None:
@@ -111,7 +104,11 @@ class MU_OT_add_rack(bpy.types.Operator):
             obj = context.active_object
             obj.name = name
             obj.dimensions = to_m(dimensions)
-            move_to_collection(obj, collection)
+            if obj.name not in collection.objects:
+                collection.objects.link(obj)
+            for existing in list(obj.users_collection):
+                if existing != collection:
+                    existing.objects.unlink(obj)
             if material is not None:
                 if obj.data.materials:
                     obj.data.materials[0] = material
@@ -133,7 +130,6 @@ class MU_OT_add_rack(bpy.types.Operator):
 
             hole_radius = config.hole_diameter * 0.5
             hole_depth = config.rail_thickness * 1.5
-
             wood = add_box(
                 f"{name_prefix}_Wood",
                 (config.rail_wood_width, config.rail_thickness, rail_length),
@@ -175,7 +171,11 @@ class MU_OT_add_rack(bpy.types.Operator):
                 )
                 hole_obj = context.active_object
                 hole_obj.name = f"{name_prefix}_Hole_{hole_index}"
-                move_to_collection(hole_obj, collection)
+                if hole_obj.name not in collection.objects:
+                    collection.objects.link(hole_obj)
+                for existing in list(hole_obj.users_collection):
+                    if existing != collection:
+                        existing.objects.unlink(hole_obj)
                 holes.append(hole_obj)
                 hole_index += 1
 
