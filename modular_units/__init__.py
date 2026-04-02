@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 57),
+    "version": (0, 1, 59),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -11,6 +11,7 @@ bl_info = {
 import bpy
 import math
 from .config import RackConfig
+from .builders import build_panel, build_rail
 from .geometry import (
     collection_name,
     rail_face_y_from_config,
@@ -95,26 +96,13 @@ class MU_OT_add_rack(bpy.types.Operator):
             return material
 
         def add_box(name, dimensions, location, material, collection):
-            bpy.ops.mesh.primitive_cube_add(
-                size=1.0,
-                enter_editmode=False,
-                align="WORLD",
-                location=to_m(location),
+            return build_panel(
+                name,
+                to_m(dimensions),
+                to_m(location),
+                material,
+                collection,
             )
-            obj = context.active_object
-            obj.name = name
-            obj.dimensions = to_m(dimensions)
-            if obj.name not in collection.objects:
-                collection.objects.link(obj)
-            for existing in list(obj.users_collection):
-                if existing != collection:
-                    existing.objects.unlink(obj)
-            if material is not None:
-                if obj.data.materials:
-                    obj.data.materials[0] = material
-                else:
-                    obj.data.materials.append(material)
-            return obj
 
         def add_rail(name_prefix, x_face, x_inward, y_face, y_inward, rotation=None):
             rotation_z = rotation[2] if rotation is not None else 0.0
@@ -130,68 +118,27 @@ class MU_OT_add_rack(bpy.types.Operator):
 
             hole_radius = config.hole_diameter * 0.5
             hole_depth = config.rail_thickness * 1.5
-            wood = add_box(
-                f"{name_prefix}_Wood",
-                (config.rail_wood_width, config.rail_thickness, rail_length),
-                wood_loc,
-                None,
-                collection,
-            )
-            rack = add_box(
-                f"{name_prefix}_Rack",
-                (config.rail_thickness, config.rail_rack_width, rail_length),
-                rack_loc,
-                None,
-                collection,
-            )
-            if rotation is not None:
-                wood.rotation_euler = rotation
-                rack.rotation_euler = rotation
-
-            for obj in (wood, rack):
-                obj.select_set(True)
-            context.view_layer.objects.active = wood
-            bpy.ops.object.join()
-            rail = context.active_object
-            rail.name = name_prefix
-
-            holes = []
-            hole_index = 1
-            for hole_center in rail_hole_centers_mm(
-                rack_loc,
-                rail_hole_zs_from_config(self.units, config),
-            ):
-                bpy.ops.mesh.primitive_cylinder_add(
-                    radius=hole_radius * mm_to_m,
-                    depth=hole_depth * mm_to_m,
-                    enter_editmode=False,
-                    align="WORLD",
-                    location=to_m(hole_center),
-                    rotation=(0.0, math.radians(90.0), rotation_z),
+            hole_centers = [
+                to_m(center)
+                for center in rail_hole_centers_mm(
+                    rack_loc,
+                    rail_hole_zs_from_config(self.units, config),
                 )
-                hole_obj = context.active_object
-                hole_obj.name = f"{name_prefix}_Hole_{hole_index}"
-                if hole_obj.name not in collection.objects:
-                    collection.objects.link(hole_obj)
-                for existing in list(hole_obj.users_collection):
-                    if existing != collection:
-                        existing.objects.unlink(hole_obj)
-                holes.append(hole_obj)
-                hole_index += 1
+            ]
 
-            if holes:
-                for obj in holes:
-                    obj.select_set(True)
-                context.view_layer.objects.active = holes[0]
-                bpy.ops.object.join()
-                holes_obj = context.active_object
-                holes_obj.name = f"{name_prefix}_Holes"
-                modifier = rail.modifiers.new(name="MU_Holes", type="BOOLEAN")
-                modifier.operation = "DIFFERENCE"
-                modifier.object = holes_obj
-                context.view_layer.objects.active = rail
-                bpy.ops.object.modifier_apply(modifier=modifier.name)
-                bpy.data.objects.remove(holes_obj, do_unlink=True)
+            build_rail(
+                name_prefix,
+                to_m((config.rail_wood_width, config.rail_thickness, rail_length)),
+                to_m((config.rail_thickness, config.rail_rack_width, rail_length)),
+                to_m(wood_loc),
+                to_m(rack_loc),
+                rotation_z,
+                hole_centers,
+                hole_radius * mm_to_m,
+                hole_depth * mm_to_m,
+                collection,
+                context,
+            )
 
         top_z = total_height - (config.top_bottom_z * 0.5)
         bottom_z = config.top_bottom_z * 0.5
