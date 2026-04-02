@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 68),
+    "version": (0, 1, 72),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -102,6 +102,7 @@ class MU_OT_add_rack(bpy.types.Operator):
                 to_m(location),
                 material,
                 collection,
+                context,
             )
 
         def add_rail(name_prefix, x_face, x_inward, y_face, y_inward, rotation=None):
