@@ -143,6 +143,17 @@ def _apply_uv_cube_project(context, obj):
         view_layer.objects.active = prev_active
 
     _rotate_uvs_for_axis_faces(obj.data, axis="X", clockwise=True)
+    if obj.name in {"MU_Top", "MU_Bottom"}:
+        _remap_uvs_for_axis_faces(
+            obj.data,
+            axis="Y",
+            u_axis="Z",
+            v_axis="X",
+            flip_u=False,
+            flip_v=False,
+        )
+    else:
+        _rotate_uvs_for_axis_faces(obj.data, axis="Y", clockwise=True)
 
 
 def _apply_boolean_difference(context, target_obj, cutter_obj):
@@ -196,6 +207,133 @@ def _rotate_uvs_for_axis_faces(mesh, axis, clockwise):
             else:
                 u, v = -v, u
             loop[uv_layer].uv = (u + 0.5, v + 0.5)
+
+    bm.to_mesh(mesh)
+    bm.free()
+
+
+def _rotate_uvs_for_axis_faces_by_normal(
+    mesh,
+    axis,
+    clockwise_for_positive,
+    flip_u=False,
+    flip_v=False,
+):
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.normal_update()
+    uv_layer = bm.loops.layers.uv.verify()
+
+    axis_index = {"X": 0, "Y": 1, "Z": 2}[axis]
+    for face in bm.faces:
+        normal = face.normal
+        if axis_index == 0:
+            match = abs(normal.x) >= abs(normal.y) and abs(normal.x) >= abs(normal.z)
+            sign = normal.x
+        elif axis_index == 1:
+            match = abs(normal.y) >= abs(normal.x) and abs(normal.y) >= abs(normal.z)
+            sign = normal.y
+        else:
+            match = abs(normal.z) >= abs(normal.x) and abs(normal.z) >= abs(normal.y)
+            sign = normal.z
+        if not match:
+            continue
+
+        clockwise = clockwise_for_positive if sign >= 0.0 else not clockwise_for_positive
+        for loop in face.loops:
+            u, v = loop[uv_layer].uv
+            u -= 0.5
+            v -= 0.5
+            if clockwise:
+                u, v = v, -u
+            else:
+                u, v = -v, u
+            if flip_u:
+                u = -u
+            if flip_v:
+                v = -v
+            loop[uv_layer].uv = (u + 0.5, v + 0.5)
+
+    bm.to_mesh(mesh)
+    bm.free()
+
+
+def _remap_uvs_for_axis_faces(mesh, axis, u_axis, v_axis, flip_u=False, flip_v=False):
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.normal_update()
+    uv_layer = bm.loops.layers.uv.verify()
+
+    axis_index = {"X": 0, "Y": 1, "Z": 2}[axis]
+    coord_index = {"X": 0, "Y": 1, "Z": 2}
+    u_index = coord_index[u_axis]
+    v_index = coord_index[v_axis]
+
+    for face in bm.faces:
+        normal = face.normal
+        if axis_index == 0:
+            match = abs(normal.x) >= abs(normal.y) and abs(normal.x) >= abs(normal.z)
+        elif axis_index == 1:
+            match = abs(normal.y) >= abs(normal.x) and abs(normal.y) >= abs(normal.z)
+        else:
+            match = abs(normal.z) >= abs(normal.x) and abs(normal.z) >= abs(normal.y)
+        if not match:
+            continue
+
+        face_uvs = []
+        for loop in face.loops:
+            vec = loop.vert.co
+            u = vec[u_index]
+            v = vec[v_index]
+            face_uvs.append((loop, u, v))
+
+        min_u = min(value[1] for value in face_uvs)
+        max_u = max(value[1] for value in face_uvs)
+        min_v = min(value[2] for value in face_uvs)
+        max_v = max(value[2] for value in face_uvs)
+        span_u = max_u - min_u
+        span_v = max_v - min_v
+
+        for loop, u, v in face_uvs:
+            if span_u != 0.0:
+                u = (u - min_u) / span_u
+            else:
+                u = 0.0
+            if span_v != 0.0:
+                v = (v - min_v) / span_v
+            else:
+                v = 0.0
+            if flip_u:
+                u = 1.0 - u
+            if flip_v:
+                v = 1.0 - v
+            loop[uv_layer].uv = (u, v)
+
+    bm.to_mesh(mesh)
+    bm.free()
+
+
+def _swap_uvs_for_axis_faces(mesh, axis):
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.normal_update()
+    uv_layer = bm.loops.layers.uv.verify()
+
+    axis_index = {"X": 0, "Y": 1, "Z": 2}[axis]
+    for face in bm.faces:
+        normal = face.normal
+        if axis_index == 0:
+            match = abs(normal.x) >= abs(normal.y) and abs(normal.x) >= abs(normal.z)
+        elif axis_index == 1:
+            match = abs(normal.y) >= abs(normal.x) and abs(normal.y) >= abs(normal.z)
+        else:
+            match = abs(normal.z) >= abs(normal.x) and abs(normal.z) >= abs(normal.y)
+        if not match:
+            continue
+
+        for loop in face.loops:
+            u, v = loop[uv_layer].uv
+            loop[uv_layer].uv = (v, u)
 
     bm.to_mesh(mesh)
     bm.free()

@@ -23,36 +23,55 @@ def _corr(a, b):
     return num / (den_a * den_b)
 
 
-def _assert_uv_orientation_for_x_faces(obj):
+def _axis_from_normal(normal):
+    ax = abs(normal.x)
+    ay = abs(normal.y)
+    az = abs(normal.z)
+    if ax >= ay and ax >= az:
+        return "X"
+    if ay >= az:
+        return "Y"
+    return "Z"
+
+
+def _expected_grain_axis(dimensions, face_axis):
+    dims = {"X": dimensions[0], "Y": dimensions[1], "Z": dimensions[2]}
+    plane_axes = [axis for axis in ("X", "Y", "Z") if axis != face_axis]
+    return max(plane_axes, key=lambda axis: dims[axis])
+
+
+def _axis_corr(values, axis_values):
+    return abs(_corr(values, axis_values))
+
+
+def _assert_uv_orientation_for_all_faces(obj, dimensions, tolerance=0.9):
     mesh = obj.data
     uv_layer = mesh.uv_layers.active
     assert uv_layer is not None
 
-    x_faces = [face for face in mesh.polygons if abs(face.normal.x) > 0.9]
-    assert x_faces
+    for face in mesh.polygons:
+        face_axis = _axis_from_normal(face.normal)
+        expected_axis = _expected_grain_axis(dimensions, face_axis)
 
-    for face in x_faces:
-        uvs = []
+        us = []
+        xs = []
         ys = []
         zs = []
         for loop_index in face.loop_indices:
-            u, v = uv_layer.data[loop_index].uv
+            u, _v = uv_layer.data[loop_index].uv
             vert_index = mesh.loops[loop_index].vertex_index
             vert = mesh.vertices[vert_index].co
-            uvs.append((u, v))
+            us.append(u)
+            xs.append(vert.x)
             ys.append(vert.y)
             zs.append(vert.z)
 
-        us = [uv[0] for uv in uvs]
-        vs = [uv[1] for uv in uvs]
-
-        corr_u_y = abs(_corr(us, ys))
-        corr_u_z = abs(_corr(us, zs))
-        corr_v_y = abs(_corr(vs, ys))
-        corr_v_z = abs(_corr(vs, zs))
-
-        assert corr_u_z >= corr_u_y
-        assert corr_v_y >= corr_v_z
+        corrs = {
+            "X": _axis_corr(us, xs),
+            "Y": _axis_corr(us, ys),
+            "Z": _axis_corr(us, zs),
+        }
+        assert corrs[expected_axis] >= tolerance
 
 
 def main():
@@ -62,7 +81,7 @@ def main():
     collection = bpy.context.scene.collection
     material = bpy.data.materials.new(name="MU_Test_Material")
 
-    obj = build_panel(
+    top = build_panel(
         "MU_Test_Panel",
         (0.49, 0.4, 0.018),
         (0.0, 0.0, 0.0),
@@ -70,13 +89,25 @@ def main():
         collection,
         bpy.context,
     )
+    top.name = "MU_Top"
 
-    assert obj.data.materials
-    assert obj.data.materials[0] == material
-    assert obj.active_material == material
-    assert obj.data.uv_layers
+    side = build_panel(
+        "MU_Side_Left",
+        (0.018, 0.4, 0.48),
+        (1.0, 0.0, 0.0),
+        material,
+        collection,
+        bpy.context,
+    )
 
-    _assert_uv_orientation_for_x_faces(obj)
+    for obj in (top, side):
+        assert obj.data.materials
+        assert obj.data.materials[0] == material
+        assert obj.active_material == material
+        assert obj.data.uv_layers
+
+    _assert_uv_orientation_for_all_faces(top, (0.49, 0.4, 0.018))
+    _assert_uv_orientation_for_all_faces(side, (0.018, 0.4, 0.48))
 
 
 if __name__ == "__main__":
