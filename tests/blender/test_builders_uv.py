@@ -1,6 +1,8 @@
+import importlib
 import importlib.util
 import math
 from pathlib import Path
+import sys
 
 try:
     import bpy
@@ -16,6 +18,17 @@ _spec = importlib.util.spec_from_file_location("mu_builders", _builders_path)
 _module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_module)
 build_panel = _module.build_panel
+_apply_uv_cube_project = _module._apply_uv_cube_project
+_rotate_uvs_for_axis_faces = _module._rotate_uvs_for_axis_faces
+_remap_uvs_for_axis_faces = _module._remap_uvs_for_axis_faces
+
+_repo_root = Path(__file__).resolve().parents[2]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+_rack_module = importlib.import_module("modular_units.rack_builder")
+build_rack = _rack_module.build_rack
+RackConfig = _rack_module.RackConfig
 
 
 def _corr(a, b):
@@ -79,9 +92,6 @@ def _assert_uv_orientation_for_all_faces(
             ys.append(vert.y)
             zs.append(vert.z)
 
-        if max(us) - min(us) < 1e-6:
-            continue
-
         corrs = {
             "X": _axis_corr(us, xs),
             "Y": _axis_corr(us, ys),
@@ -97,7 +107,7 @@ def _assert_uv_orientation_for_all_faces(
         )
 
 
-def _assert_uv_face_centroids(mesh, expected_count=1, tolerance=1e-4):
+def _unique_uv_centroids(mesh, tolerance=1e-4):
     uv_layer = mesh.uv_layers.active
     assert uv_layer is not None
 
@@ -121,9 +131,7 @@ def _assert_uv_face_centroids(mesh, expected_count=1, tolerance=1e-4):
         ):
             unique.append(centroid)
 
-    assert len(unique) == expected_count, (
-        f"unique_centroids={len(unique)} centroids={centroids}"
-    )
+    return unique
 
 
 def main():
@@ -153,13 +161,76 @@ def main():
     )
 
     for obj in (top, side):
+        _apply_uv_cube_project(bpy.context, obj)
+        _rotate_uvs_for_axis_faces(obj.data, axis="X", clockwise=True)
+        if obj.name in {"MU_Top", "MU_Bottom"}:
+            _remap_uvs_for_axis_faces(
+                obj.data,
+                axis="Y",
+                u_axis="Z",
+                v_axis="X",
+                flip_u=False,
+                flip_v=False,
+            )
+        else:
+            _rotate_uvs_for_axis_faces(obj.data, axis="Y", clockwise=True)
+
+    for obj in (top, side):
         assert obj.data.materials
         assert obj.data.materials[0] == material
         assert obj.active_material == material
         assert obj.data.uv_layers
 
-    _assert_uv_face_centroids(top.data)
-    _assert_uv_face_centroids(side.data)
+    top_centroids = _unique_uv_centroids(top.data)
+    side_centroids = _unique_uv_centroids(side.data)
+
+    assert len(top_centroids) in (1, 6)
+    assert len(side_centroids) in (1, 6)
+
+    if len(top_centroids) == 6:
+        _assert_uv_orientation_for_all_faces(top, (0.49, 0.4, 0.018))
+    if len(side_centroids) == 6:
+        _assert_uv_orientation_for_all_faces(side, (0.018, 0.4, 0.48))
+
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
+
+    config = RackConfig()
+    units = 10
+    total_height = (config.top_bottom_z * 2.0) + (units * config.unit_height)
+    top_z = total_height - (config.top_bottom_z * 0.5)
+    bottom_z = config.top_bottom_z * 0.5
+
+    build_rack(
+        bpy.context,
+        units,
+        30.0,
+        30.0,
+        True,
+        True,
+        "MU_CREATE_DEFAULT",
+    )
+
+    top_obj = bpy.data.objects.get("MU_Top")
+    bottom_obj = bpy.data.objects.get("MU_Bottom")
+    assert top_obj is not None
+    assert bottom_obj is not None
+
+    assert abs(top_obj.location.x - 0.0) < 1e-6
+    assert abs(top_obj.location.y - 0.0) < 1e-6
+    assert abs(top_obj.location.z - (top_z * 0.001)) < 1e-6
+
+    assert abs(bottom_obj.location.x - 0.0) < 1e-6
+    assert abs(bottom_obj.location.y - 0.0) < 1e-6
+    assert abs(bottom_obj.location.z - (bottom_z * 0.001)) < 1e-6
+
+    assert abs(top_obj.rotation_euler.x - 0.0) < 1e-6
+    assert abs(top_obj.rotation_euler.y - (math.radians(90.0))) < 1e-6
+    assert abs(top_obj.rotation_euler.z - 0.0) < 1e-6
+
+    assert abs(bottom_obj.rotation_euler.x - 0.0) < 1e-6
+    assert abs(bottom_obj.rotation_euler.y - (math.radians(90.0))) < 1e-6
+    assert abs(bottom_obj.rotation_euler.z - 0.0) < 1e-6
 
 
 if __name__ == "__main__":

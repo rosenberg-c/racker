@@ -11,9 +11,11 @@ def build_panel(name, dimensions, location, material, collection, context):
     collection.objects.link(obj)
 
     bm = bmesh.new()
-    _add_box(bm, dimensions, location, rotation_z=None)
+    _add_box(bm, dimensions, (0.0, 0.0, 0.0), rotation_z=None)
     bm.to_mesh(mesh)
     bm.free()
+
+    obj.location = location
 
     if material is not None:
         obj.data.materials.clear()

@@ -61,8 +61,8 @@ def build_rack(
             material = bpy.data.materials.new(name=name)
         return material
 
-    def add_box(name, dimensions, location, material, collection):
-        return build_panel(
+    def add_box(name, dimensions, location, material, collection, rotation=None):
+        obj = build_panel(
             name,
             to_m(dimensions),
             to_m(location),
@@ -70,6 +70,9 @@ def build_rack(
             collection,
             context,
         )
+        if rotation is not None:
+            obj.rotation_euler = rotation
+        return obj
 
     def add_rail(name_prefix, x_face, x_inward, y_face, y_inward, rotation=None):
         rotation_z = rotation[2] if rotation is not None else 0.0
@@ -129,17 +132,19 @@ def build_rack(
 
     add_box(
         "MU_Top",
-        (config.top_bottom_x, config.top_bottom_y, config.top_bottom_z),
+        (config.top_bottom_z, config.top_bottom_y, config.top_bottom_x),
         (0.0, 0.0, top_z),
         material,
         collection,
+        rotation=(0.0, math.radians(90.0), 0.0),
     )
     add_box(
         "MU_Bottom",
-        (config.top_bottom_x, config.top_bottom_y, config.top_bottom_z),
+        (config.top_bottom_z, config.top_bottom_y, config.top_bottom_x),
         (0.0, 0.0, bottom_z),
         material,
         collection,
+        rotation=(0.0, math.radians(90.0), 0.0),
     )
     add_box(
         "MU_Side_Left",
