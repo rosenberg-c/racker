@@ -1,3 +1,6 @@
+from .config import RackConfig
+
+
 def collection_name(units, front_rails, back_rails):
     if front_rails and back_rails:
         return f"MU_{units}.front-back"
@@ -23,14 +26,26 @@ def total_height_mm(units, top_bottom_z, unit_height):
     return (top_bottom_z * 2.0) + (units * unit_height)
 
 
+def total_height_from_config(units, config):
+    return total_height_mm(units, config.top_bottom_z, config.unit_height)
+
+
 def rail_length_mm(total_height, top_bottom_z):
     return total_height - (top_bottom_z * 2.0)
+
+
+def rail_length_from_config(units, config):
+    return rail_length_mm(total_height_from_config(units, config), config.top_bottom_z)
 
 
 def rail_face_y_mm(top_bottom_y, rail_offset_front, rail_offset_back):
     front = -(top_bottom_y * 0.5) + rail_offset_front
     back = (top_bottom_y * 0.5) - rail_offset_back
     return front, back
+
+
+def rail_face_y_from_config(config, rail_offset_front, rail_offset_back):
+    return rail_face_y_mm(config.top_bottom_y, rail_offset_front, rail_offset_back)
 
 
 def rail_hole_zs_mm(units, top_bottom_z, unit_height, hole_offsets):
@@ -45,7 +60,15 @@ def rail_hole_zs_mm(units, top_bottom_z, unit_height, hole_offsets):
     return positions
 
 
+def rail_hole_zs_from_config(units, config):
+    return rail_hole_zs_mm(units, config.top_bottom_z, config.unit_height, config.hole_offsets)
+
+
 def rail_x_faces_mm(top_bottom_x, side_x, rail_outset):
     left = -((top_bottom_x * 0.5) - side_x) - rail_outset
     right = ((top_bottom_x * 0.5) - side_x) + rail_outset
     return left, right
+
+
+def rail_x_faces_from_config(config, rail_outset):
+    return rail_x_faces_mm(config.top_bottom_x, config.side_x, rail_outset)

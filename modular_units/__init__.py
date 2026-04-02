@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 50),
+    "version": (0, 1, 52),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -15,11 +15,11 @@ import mathutils
 from .config import RackConfig
 from .geometry import (
     collection_name,
-    rail_face_y_mm,
-    rail_hole_zs_mm,
-    rail_length_mm,
-    rail_x_faces_mm,
-    total_height_mm,
+    rail_face_y_from_config,
+    rail_hole_zs_from_config,
+    rail_length_from_config,
+    rail_x_faces_from_config,
+    total_height_from_config,
     unique_collection_name,
 )
 
@@ -75,9 +75,9 @@ class MU_OT_add_rack(bpy.types.Operator):
     def execute(self, context):
         config = RackConfig()
         mm_to_m = 0.001
-        total_height = total_height_mm(self.units, config.top_bottom_z, config.unit_height)
+        total_height = total_height_from_config(self.units, config)
         side_z = total_height
-        rail_length = rail_length_mm(total_height, config.top_bottom_z)
+        rail_length = rail_length_from_config(self.units, config)
 
         def to_m(values):
             return tuple(value * mm_to_m for value in values)
@@ -168,12 +168,7 @@ class MU_OT_add_rack(bpy.types.Operator):
 
             holes = []
             hole_index = 1
-            for hole_z in rail_hole_zs_mm(
-                self.units,
-                config.top_bottom_z,
-                config.unit_height,
-                config.hole_offsets,
-            ):
+            for hole_z in rail_hole_zs_from_config(self.units, config):
                 bpy.ops.mesh.primitive_cylinder_add(
                     radius=hole_radius * mm_to_m,
                     depth=hole_depth * mm_to_m,
@@ -206,13 +201,9 @@ class MU_OT_add_rack(bpy.types.Operator):
         bottom_z = config.top_bottom_z * 0.5
         side_z_center = total_height * 0.5
         side_x_offset = (config.top_bottom_x * 0.5) - (config.side_x * 0.5) + 18.0
-        inside_x_face_left, inside_x_face_right = rail_x_faces_mm(
-            config.top_bottom_x,
-            config.side_x,
-            0.0,
-        )
-        inside_y_face_front, inside_y_face_back = rail_face_y_mm(
-            config.top_bottom_y,
+        inside_x_face_left, inside_x_face_right = rail_x_faces_from_config(config, 0.0)
+        inside_y_face_front, inside_y_face_back = rail_face_y_from_config(
+            config,
             self.rail_offset_front,
             self.rail_offset_back,
         )
