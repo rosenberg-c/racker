@@ -10,10 +10,24 @@ _spec.loader.exec_module(_module)
 collection_name = _module.collection_name
 unique_collection_name = _module.unique_collection_name
 rail_face_y_mm = _module.rail_face_y_mm
+rail_face_y_from_config = _module.rail_face_y_from_config
 rail_hole_zs_mm = _module.rail_hole_zs_mm
+rail_hole_zs_from_config = _module.rail_hole_zs_from_config
 rail_x_faces_mm = _module.rail_x_faces_mm
+rail_x_faces_from_config = _module.rail_x_faces_from_config
 rail_length_mm = _module.rail_length_mm
+rail_length_from_config = _module.rail_length_from_config
 total_height_mm = _module.total_height_mm
+total_height_from_config = _module.total_height_from_config
+
+
+class _Config:
+    top_bottom_x = 490.0
+    top_bottom_y = 400.0
+    top_bottom_z = 18.0
+    side_x = 18.0
+    unit_height = 44.45
+    hole_offsets = (6.35, 22.225, 38.1)
 
 
 def test_collection_name():
@@ -33,13 +47,27 @@ def test_total_height_mm():
     assert total_height_mm(10, 18.0, 44.45) == 18.0 * 2.0 + 10 * 44.45
 
 
+def test_total_height_from_config():
+    assert total_height_from_config(10, _Config()) == 18.0 * 2.0 + 10 * 44.45
+
+
 def test_rail_length_mm_min_u():
     total = total_height_mm(1, 18.0, 44.45)
     assert rail_length_mm(total, 18.0) == 44.45
 
 
+def test_rail_length_from_config():
+    assert rail_length_from_config(1, _Config()) == 44.45
+
+
 def test_rail_face_y_mm():
     front, back = rail_face_y_mm(400.0, 30.0, 30.0)
+    assert front == -200.0 + 30.0
+    assert back == 200.0 - 30.0
+
+
+def test_rail_face_y_from_config():
+    front, back = rail_face_y_from_config(_Config(), 30.0, 30.0)
     assert front == -200.0 + 30.0
     assert back == 200.0 - 30.0
 
@@ -56,9 +84,20 @@ def test_rail_x_faces_mm():
     assert right == 225.5 + 18.0
 
 
+def test_rail_x_faces_from_config():
+    left, right = rail_x_faces_from_config(_Config(), 18.0)
+    assert left == -227.0 - 18.0
+    assert right == 227.0 + 18.0
+
+
 def test_rail_hole_zs_mm_count():
     hole_offsets = (6.35, 22.225, 38.1)
     positions = rail_hole_zs_mm(2, 18.0, 44.45, hole_offsets)
+    assert len(positions) == 6
+
+
+def test_rail_hole_zs_from_config_count():
+    positions = rail_hole_zs_from_config(2, _Config())
     assert len(positions) == 6
 
 

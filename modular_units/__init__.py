@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 52),
+    "version": (0, 1, 54),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -11,7 +11,6 @@ bl_info = {
 import bpy
 import math
 import mathutils
-
 from .config import RackConfig
 from .geometry import (
     collection_name,
@@ -130,12 +129,14 @@ class MU_OT_add_rack(bpy.types.Operator):
             pivot = (x_face, y_face, side_z_center)
             wood_loc = (wood_center_x, wood_center_y, side_z_center)
             rack_loc = (rack_center_x, rack_center_y, side_z_center)
-            rot = None
             if rotation is not None:
                 rot = mathutils.Euler(rotation, "XYZ").to_matrix()
                 pivot_vec = mathutils.Vector(pivot)
                 wood_loc = tuple(pivot_vec + rot @ (mathutils.Vector(wood_loc) - pivot_vec))
                 rack_loc = tuple(pivot_vec + rot @ (mathutils.Vector(rack_loc) - pivot_vec))
+
+            hole_radius = config.hole_diameter * 0.5
+            hole_depth = config.rail_thickness * 1.5
 
             wood = add_box(
                 f"{name_prefix}_Wood",
@@ -162,10 +163,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             rail = context.active_object
             rail.name = name_prefix
 
-            hole_radius = config.hole_diameter * 0.5
-            hole_depth = config.rail_thickness * 1.5
             rotation_z = rotation[2] if rotation is not None else 0.0
-
             holes = []
             hole_index = 1
             for hole_z in rail_hole_zs_from_config(self.units, config):

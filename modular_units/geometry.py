@@ -1,6 +1,3 @@
-from .config import RackConfig
-
-
 def collection_name(units, front_rails, back_rails):
     if front_rails and back_rails:
         return f"MU_{units}.front-back"
