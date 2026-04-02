@@ -9,7 +9,7 @@ VENV_DIR := .venv
 PYTHON := $(VENV_DIR)/bin/python
 PIP := $(PYTHON) -m pip
 
-.PHONY: zip bump-patch install clean-install restart-blender venv install-dev test clean
+.PHONY: zip bump-patch install clean-install restart-blender venv install-dev test clean blender-test test-all pytest-test
 
 zip: bump-patch
 	@mkdir -p $(DIST_DIR)
@@ -57,5 +57,12 @@ venv:
 install-dev: venv
 	@$(PIP) install pytest
 
-test: install-dev
+pytest-test: install-dev
 	@$(PYTHON) -m pytest
+
+blender-test:
+	@"$(BLENDER_BIN)" --background --python "tests/blender/test_builders_uv.py"
+
+test-all: pytest-test blender-test
+
+test: test-all
