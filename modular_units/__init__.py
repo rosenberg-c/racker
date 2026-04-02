@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 54),
+    "version": (0, 1, 55),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -10,7 +10,6 @@ bl_info = {
 
 import bpy
 import math
-import mathutils
 from .config import RackConfig
 from .geometry import (
     collection_name,
@@ -21,6 +20,7 @@ from .geometry import (
     total_height_from_config,
     unique_collection_name,
 )
+from .rails import rail_component_centers_mm, rail_hole_centers_mm
 
 
 DEFAULT_MATERIAL_NAME = "material.shelf.pine.800x400x18"
@@ -120,20 +120,16 @@ class MU_OT_add_rack(bpy.types.Operator):
             return obj
 
         def add_rail(name_prefix, x_face, x_inward, y_face, y_inward, rotation=None):
-            wood_center_x = x_face + (config.rail_wood_width * 0.5 * x_inward)
-            rack_center_x = x_face + (config.rail_thickness * 0.5 * x_inward)
-
-            wood_center_y = y_face + (config.rail_thickness * 0.5 * y_inward)
-            rack_center_y = y_face + (config.rail_rack_width * 0.5 * y_inward)
-
-            pivot = (x_face, y_face, side_z_center)
-            wood_loc = (wood_center_x, wood_center_y, side_z_center)
-            rack_loc = (rack_center_x, rack_center_y, side_z_center)
-            if rotation is not None:
-                rot = mathutils.Euler(rotation, "XYZ").to_matrix()
-                pivot_vec = mathutils.Vector(pivot)
-                wood_loc = tuple(pivot_vec + rot @ (mathutils.Vector(wood_loc) - pivot_vec))
-                rack_loc = tuple(pivot_vec + rot @ (mathutils.Vector(rack_loc) - pivot_vec))
+            rotation_z = rotation[2] if rotation is not None else 0.0
+            wood_loc, rack_loc = rail_component_centers_mm(
+                x_face,
+                x_inward,
+                y_face,
+                y_inward,
+                side_z_center,
+                config,
+                rotation_z=rotation_z,
+            )
 
             hole_radius = config.hole_diameter * 0.5
             hole_depth = config.rail_thickness * 1.5
@@ -163,16 +159,18 @@ class MU_OT_add_rack(bpy.types.Operator):
             rail = context.active_object
             rail.name = name_prefix
 
-            rotation_z = rotation[2] if rotation is not None else 0.0
             holes = []
             hole_index = 1
-            for hole_z in rail_hole_zs_from_config(self.units, config):
+            for hole_center in rail_hole_centers_mm(
+                rack_loc,
+                rail_hole_zs_from_config(self.units, config),
+            ):
                 bpy.ops.mesh.primitive_cylinder_add(
                     radius=hole_radius * mm_to_m,
                     depth=hole_depth * mm_to_m,
                     enter_editmode=False,
                     align="WORLD",
-                    location=to_m((rack_loc[0], rack_loc[1], hole_z)),
+                    location=to_m(hole_center),
                     rotation=(0.0, math.radians(90.0), rotation_z),
                 )
                 hole_obj = context.active_object
