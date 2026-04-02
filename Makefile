@@ -5,8 +5,11 @@ VERSION_FILE := $(PLUGIN_NAME)/__init__.py
 BLENDER_VERSION ?= 5.0
 BLENDER_ADDONS_DIR := $(HOME)/Library/Application Support/Blender/$(BLENDER_VERSION)/scripts/addons
 BLENDER_BIN ?= /Applications/Blender.app/Contents/MacOS/Blender
+VENV_DIR := .venv
+PYTHON := $(VENV_DIR)/bin/python
+PIP := $(PYTHON) -m pip
 
-.PHONY: zip bump-patch install clean-install restart-blender clean
+.PHONY: zip bump-patch install clean-install restart-blender venv install-dev test clean
 
 zip: bump-patch
 	@mkdir -p $(DIST_DIR)
@@ -46,3 +49,13 @@ restart-blender:
 	@pkill -f "Blender.app/Contents/MacOS/Blender" || true
 	@$(MAKE) install
 	@open -a Blender -n
+
+venv:
+	@python3 -m venv $(VENV_DIR)
+	@$(PIP) install --upgrade pip
+
+install-dev: venv
+	@$(PIP) install pytest
+
+test: install-dev
+	@$(PYTHON) -m pytest

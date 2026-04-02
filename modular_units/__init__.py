@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 45),
+    "version": (0, 1, 46),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -11,6 +11,8 @@ bl_info = {
 import bpy
 import math
 import mathutils
+
+from .geometry import collection_name, rail_face_y_mm, rail_hole_zs_mm, total_height_mm
 
 
 DEFAULT_MATERIAL_NAME = "material.shelf.pine.800x400x18"
@@ -76,7 +78,7 @@ class MU_OT_add_rack(bpy.types.Operator):
         hole_diameter = 7.1
         hole_offsets = (6.35, 22.225, 38.1)
 
-        total_height = (top_bottom_z * 2.0) + (self.units * unit_height)
+        total_height = total_height_mm(self.units, top_bottom_z, unit_height)
         side_z = total_height
         rail_length = total_height - (top_bottom_z * 2.0)
 
@@ -171,32 +173,26 @@ class MU_OT_add_rack(bpy.types.Operator):
             rail = context.active_object
             rail.name = name_prefix
 
-            rail_top_z = total_height - top_bottom_z
             hole_radius = hole_diameter * 0.5
             hole_depth = rail_thickness * 1.5
             rotation_z = rotation[2] if rotation is not None else 0.0
 
             holes = []
             hole_index = 1
-            for unit_index in range(self.units):
-                base_z = rail_top_z - (unit_index * unit_height)
-                for offset in hole_offsets:
-                    hole_z = base_z - offset
-                    if hole_z < top_bottom_z or hole_z > rail_top_z:
-                        continue
-                    bpy.ops.mesh.primitive_cylinder_add(
-                        radius=hole_radius * mm_to_m,
-                        depth=hole_depth * mm_to_m,
-                        enter_editmode=False,
-                        align="WORLD",
-                        location=to_m((rack_loc[0], rack_loc[1], hole_z)),
-                        rotation=(0.0, math.radians(90.0), rotation_z),
-                    )
-                    hole_obj = context.active_object
-                    hole_obj.name = f"{name_prefix}_Hole_{hole_index}"
-                    move_to_collection(hole_obj, collection)
-                    holes.append(hole_obj)
-                    hole_index += 1
+            for hole_z in rail_hole_zs_mm(self.units, top_bottom_z, unit_height, hole_offsets):
+                bpy.ops.mesh.primitive_cylinder_add(
+                    radius=hole_radius * mm_to_m,
+                    depth=hole_depth * mm_to_m,
+                    enter_editmode=False,
+                    align="WORLD",
+                    location=to_m((rack_loc[0], rack_loc[1], hole_z)),
+                    rotation=(0.0, math.radians(90.0), rotation_z),
+                )
+                hole_obj = context.active_object
+                hole_obj.name = f"{name_prefix}_Hole_{hole_index}"
+                move_to_collection(hole_obj, collection)
+                holes.append(hole_obj)
+                hole_index += 1
 
             if holes:
                 for obj in holes:
@@ -218,8 +214,11 @@ class MU_OT_add_rack(bpy.types.Operator):
         side_x_offset = (top_bottom_x * 0.5) - (side_x * 0.5) + 18.0
         inside_x_face_left = -((top_bottom_x * 0.5) - side_x)
         inside_x_face_right = (top_bottom_x * 0.5) - side_x
-        inside_y_face_front = -(top_bottom_y * 0.5) + self.rail_offset_front
-        inside_y_face_back = (top_bottom_y * 0.5) - self.rail_offset_back
+        inside_y_face_front, inside_y_face_back = rail_face_y_mm(
+            top_bottom_y,
+            self.rail_offset_front,
+            self.rail_offset_back,
+        )
 
         selection = context.scene.mu_material
         if selection == "MU_CREATE_DEFAULT":
@@ -229,16 +228,9 @@ class MU_OT_add_rack(bpy.types.Operator):
             if material is None:
                 material = ensure_material(DEFAULT_MATERIAL_NAME)
 
-        if self.front_rails and self.back_rails:
-            collection_name = f"MU_{self.units}.front-back"
-        elif self.front_rails:
-            collection_name = f"MU_{self.units}.front"
-        elif self.back_rails:
-            collection_name = f"MU_{self.units}.back"
-        else:
-            collection_name = f"MU_{self.units}"
-
-        collection = ensure_collection(collection_name)
+        collection = ensure_collection(
+            collection_name(self.units, self.front_rails, self.back_rails)
+        )
 
         add_box(
             "MU_Top",
