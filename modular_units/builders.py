@@ -12,14 +12,20 @@ def build_panel(name, dimensions, location, material, collection):
 
     bm = bmesh.new()
     _add_box(bm, dimensions, location, rotation_z=None)
+    _apply_uv_cube_projection(bm)
     bm.to_mesh(mesh)
     bm.free()
 
     if material is not None:
-        if obj.data.materials:
-            obj.data.materials[0] = material
-        else:
-            obj.data.materials.append(material)
+        obj.data.materials.clear()
+        obj.data.materials.append(material)
+        mesh.materials.clear()
+        mesh.materials.append(material)
+        if obj.material_slots:
+            obj.material_slots[0].material = material
+        obj.active_material_index = 0
+        obj.active_material = material
+        mesh.update()
 
     return obj
 
@@ -110,6 +116,60 @@ def _add_cylinder(bm, radius, depth, location, rotation):
     rot = mathutils.Euler(rotation, "XYZ").to_matrix().to_4x4()
     bmesh.ops.rotate(bm, verts=verts, cent=(0.0, 0.0, 0.0), matrix=rot)
     bmesh.ops.translate(bm, verts=verts, vec=location)
+
+
+def _apply_uv_cube_projection(bm):
+    bm.faces.ensure_lookup_table()
+    uv_layer = bm.loops.layers.uv.verify()
+    for face in bm.faces:
+        normal = face.normal
+        ax = abs(normal.x)
+        ay = abs(normal.y)
+        az = abs(normal.z)
+
+        face_uvs = []
+        if ax >= ay and ax >= az:
+            for loop in face.loops:
+                vec = loop.vert.co
+                u = vec.z
+                v = vec.y
+                if normal.x > 0.0:
+                    v = -v
+                face_uvs.append((loop, u, v))
+        elif ay >= az:
+            for loop in face.loops:
+                vec = loop.vert.co
+                u = vec.z
+                v = vec.x
+                if normal.y < 0.0:
+                    v = -v
+                face_uvs.append((loop, u, v))
+        else:
+            for loop in face.loops:
+                vec = loop.vert.co
+                u = vec.x
+                v = vec.y
+                if normal.z < 0.0:
+                    u = -u
+                face_uvs.append((loop, u, v))
+
+        min_u = min(value[1] for value in face_uvs)
+        max_u = max(value[1] for value in face_uvs)
+        min_v = min(value[2] for value in face_uvs)
+        max_v = max(value[2] for value in face_uvs)
+        span_u = max_u - min_u
+        span_v = max_v - min_v
+
+        for loop, u, v in face_uvs:
+            if span_u != 0.0:
+                u = (u - min_u) / span_u
+            else:
+                u = 0.0
+            if span_v != 0.0:
+                v = (v - min_v) / span_v
+            else:
+                v = 0.0
+            loop[uv_layer].uv = (u, v)
 
 
 def _apply_boolean_difference(context, target_obj, cutter_obj):
