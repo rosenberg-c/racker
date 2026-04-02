@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 46),
+    "version": (0, 1, 48),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -12,7 +12,15 @@ import bpy
 import math
 import mathutils
 
-from .geometry import collection_name, rail_face_y_mm, rail_hole_zs_mm, total_height_mm
+from .geometry import (
+    collection_name,
+    rail_face_y_mm,
+    rail_hole_zs_mm,
+    rail_length_mm,
+    rail_x_faces_mm,
+    total_height_mm,
+    unique_collection_name,
+)
 
 
 DEFAULT_MATERIAL_NAME = "material.shelf.pine.800x400x18"
@@ -80,25 +88,17 @@ class MU_OT_add_rack(bpy.types.Operator):
 
         total_height = total_height_mm(self.units, top_bottom_z, unit_height)
         side_z = total_height
-        rail_length = total_height - (top_bottom_z * 2.0)
+        rail_length = rail_length_mm(total_height, top_bottom_z)
 
         def to_m(values):
             return tuple(value * mm_to_m for value in values)
 
         def ensure_collection(name):
-            if bpy.data.collections.get(name) is None:
-                collection = bpy.data.collections.new(name)
-                context.scene.collection.children.link(collection)
-                return collection
-
-            index = 2
-            while True:
-                candidate = f"{name}.{index}"
-                if bpy.data.collections.get(candidate) is None:
-                    collection = bpy.data.collections.new(candidate)
-                    context.scene.collection.children.link(collection)
-                    return collection
-                index += 1
+            existing = {collection.name for collection in bpy.data.collections}
+            resolved = unique_collection_name(name, existing)
+            collection = bpy.data.collections.new(resolved)
+            context.scene.collection.children.link(collection)
+            return collection
 
         def move_to_collection(obj, collection):
             if obj.name not in collection.objects:
@@ -212,8 +212,11 @@ class MU_OT_add_rack(bpy.types.Operator):
         bottom_z = top_bottom_z * 0.5
         side_z_center = total_height * 0.5
         side_x_offset = (top_bottom_x * 0.5) - (side_x * 0.5) + 18.0
-        inside_x_face_left = -((top_bottom_x * 0.5) - side_x)
-        inside_x_face_right = (top_bottom_x * 0.5) - side_x
+        inside_x_face_left, inside_x_face_right = rail_x_faces_mm(
+            top_bottom_x,
+            side_x,
+            0.0,
+        )
         inside_y_face_front, inside_y_face_back = rail_face_y_mm(
             top_bottom_y,
             self.rail_offset_front,

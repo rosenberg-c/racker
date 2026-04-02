@@ -8,8 +8,11 @@ _module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_module)
 
 collection_name = _module.collection_name
+unique_collection_name = _module.unique_collection_name
 rail_face_y_mm = _module.rail_face_y_mm
 rail_hole_zs_mm = _module.rail_hole_zs_mm
+rail_x_faces_mm = _module.rail_x_faces_mm
+rail_length_mm = _module.rail_length_mm
 total_height_mm = _module.total_height_mm
 
 
@@ -20,8 +23,19 @@ def test_collection_name():
     assert collection_name(10, True, True) == "MU_10.front-back"
 
 
+def test_unique_collection_name():
+    existing = {"MU_10", "MU_10.2", "MU_10.3"}
+    assert unique_collection_name("MU_10", existing) == "MU_10.4"
+    assert unique_collection_name("MU_11", existing) == "MU_11"
+
+
 def test_total_height_mm():
     assert total_height_mm(10, 18.0, 44.45) == 18.0 * 2.0 + 10 * 44.45
+
+
+def test_rail_length_mm_min_u():
+    total = total_height_mm(1, 18.0, 44.45)
+    assert rail_length_mm(total, 18.0) == 44.45
 
 
 def test_rail_face_y_mm():
@@ -30,10 +44,38 @@ def test_rail_face_y_mm():
     assert back == 200.0 - 30.0
 
 
+def test_rail_face_y_mm_asymmetric():
+    front, back = rail_face_y_mm(400.0, 10.0, 50.0)
+    assert front == -200.0 + 10.0
+    assert back == 200.0 - 50.0
+
+
+def test_rail_x_faces_mm():
+    left, right = rail_x_faces_mm(487.0, 18.0, 18.0)
+    assert left == -225.5 - 18.0
+    assert right == 225.5 + 18.0
+
+
 def test_rail_hole_zs_mm_count():
     hole_offsets = (6.35, 22.225, 38.1)
     positions = rail_hole_zs_mm(2, 18.0, 44.45, hole_offsets)
     assert len(positions) == 6
+
+
+def test_rail_hole_zs_mm_count_multi_u():
+    hole_offsets = (6.35, 22.225, 38.1)
+    positions = rail_hole_zs_mm(4, 18.0, 44.45, hole_offsets)
+    assert len(positions) == 12
+
+
+def test_rail_hole_spacing_per_u():
+    hole_offsets = (6.35, 22.225, 38.1)
+    positions = sorted(rail_hole_zs_mm(1, 18.0, 44.45, hole_offsets))
+    assert len(positions) == 3
+    spacing1 = positions[1] - positions[0]
+    spacing2 = positions[2] - positions[1]
+    assert abs(spacing1 - 15.875) < 1e-6
+    assert abs(spacing2 - 15.875) < 1e-6
 
 
 def test_rail_hole_zs_mm_bounds():
