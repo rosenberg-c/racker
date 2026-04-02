@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 44),
+    "version": (0, 1, 45),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -229,7 +229,16 @@ class MU_OT_add_rack(bpy.types.Operator):
             if material is None:
                 material = ensure_material(DEFAULT_MATERIAL_NAME)
 
-        collection = ensure_collection(f"MU_{self.units}")
+        if self.front_rails and self.back_rails:
+            collection_name = f"MU_{self.units}.front-back"
+        elif self.front_rails:
+            collection_name = f"MU_{self.units}.front"
+        elif self.back_rails:
+            collection_name = f"MU_{self.units}.back"
+        else:
+            collection_name = f"MU_{self.units}"
+
+        collection = ensure_collection(collection_name)
 
         add_box(
             "MU_Top",
