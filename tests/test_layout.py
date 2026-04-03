@@ -89,14 +89,15 @@ def test_rail_centers_front_back_default_config():
         rotation_z=math.radians(90.0),
     )
 
-    _assert_point(front_left[0], (-244.0, -155.0, 240.25))
-    _assert_point(front_left[1], (-234.5, -169.0, 240.25))
-    _assert_point(front_right[0], (244.0, -155.0, 240.25))
-    _assert_point(front_right[1], (234.5, -169.0, 240.25))
-    _assert_point(back_left[0], (-244.0, 155.0, 240.25))
-    _assert_point(back_left[1], (-234.5, 169.0, 240.25))
-    _assert_point(back_right[0], (244.0, 155.0, 240.25))
-    _assert_point(back_right[1], (234.5, 169.0, 240.25))
+    rail_centers = [
+        (front_left, ((-244.0, -155.0, 240.25), (-234.5, -169.0, 240.25))),
+        (front_right, ((244.0, -155.0, 240.25), (234.5, -169.0, 240.25))),
+        (back_left, ((-244.0, 155.0, 240.25), (-234.5, 169.0, 240.25))),
+        (back_right, ((244.0, 155.0, 240.25), (234.5, 169.0, 240.25))),
+    ]
+    for (wood_center, rack_center), (expected_wood, expected_rack) in rail_centers:
+        _assert_point(wood_center, expected_wood)
+        _assert_point(rack_center, expected_rack)
 
 
 def test_rail_hole_centers_default_config():
@@ -120,9 +121,9 @@ def test_rail_hole_centers_default_config():
         rack_loc,
         rail_hole_zs_from_config(units, config),
     )
-    _assert_point(hole_centers[0], (rack_loc[0], rack_loc[1], 56.1))
-    _assert_point(hole_centers[1], (rack_loc[0], rack_loc[1], 40.225))
-    _assert_point(hole_centers[2], (rack_loc[0], rack_loc[1], 24.35))
+    expected_hole_zs = (56.1, 40.225, 24.35)
+    for hole_center, expected_z in zip(hole_centers, expected_hole_zs):
+        _assert_point(hole_center, (rack_loc[0], rack_loc[1], expected_z))
 
 
 def _assert_point(point, expected, tolerance=1e-6):

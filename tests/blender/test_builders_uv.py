@@ -29,6 +29,10 @@ if str(_repo_root) not in sys.path:
 _rack_module = importlib.import_module("modular_units.rack_builder")
 build_rack = _rack_module.build_rack
 RackConfig = _rack_module.RackConfig
+_rails_module = importlib.import_module("modular_units.rails")
+rail_component_centers_mm = _rails_module.rail_component_centers_mm
+_geometry_module = importlib.import_module("modular_units.geometry")
+rail_length_from_config = _geometry_module.rail_length_from_config
 
 
 def _corr(a, b):
@@ -132,6 +136,64 @@ def _unique_uv_centroids(mesh, tolerance=1e-4):
             unique.append(centroid)
 
     return unique
+
+
+def _assert_point(actual, expected, tolerance=1e-6):
+    assert abs(actual[0] - expected[0]) < tolerance, (
+        f"actual={actual} expected={expected} axis=x"
+    )
+    assert abs(actual[1] - expected[1]) < tolerance, (
+        f"actual={actual} expected={expected} axis=y"
+    )
+    assert abs(actual[2] - expected[2]) < tolerance, (
+        f"actual={actual} expected={expected} axis=z"
+    )
+
+
+def _mesh_bounds_center(obj):
+    mesh = obj.data
+    assert mesh.vertices
+    min_x = float("inf")
+    min_y = float("inf")
+    min_z = float("inf")
+    max_x = float("-inf")
+    max_y = float("-inf")
+    max_z = float("-inf")
+    for vert in mesh.vertices:
+        world = obj.matrix_world @ vert.co
+        min_x = min(min_x, world.x)
+        min_y = min(min_y, world.y)
+        min_z = min(min_z, world.z)
+        max_x = max(max_x, world.x)
+        max_y = max(max_y, world.y)
+        max_z = max(max_z, world.z)
+    return ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5, (min_z + max_z) * 0.5)
+
+
+def _bounds_from_center(center, dimensions, rotation_z):
+    half_x = dimensions[0] * 0.5
+    half_y = dimensions[1] * 0.5
+    half_z = dimensions[2] * 0.5
+    rotation = abs(rotation_z or 0.0) % (math.pi * 2.0)
+    if abs(rotation - math.radians(90.0)) < 1e-6 or abs(
+        rotation - math.radians(270.0)
+    ) < 1e-6:
+        half_x, half_y = half_y, half_x
+    min_point = (center[0] - half_x, center[1] - half_y, center[2] - half_z)
+    max_point = (center[0] + half_x, center[1] + half_y, center[2] + half_z)
+    return min_point, max_point
+
+
+def _combined_bounds_center(wood_center, rack_center, wood_dims, rack_dims, rotation_z):
+    wood_min, wood_max = _bounds_from_center(wood_center, wood_dims, rotation_z)
+    rack_min, rack_max = _bounds_from_center(rack_center, rack_dims, rotation_z)
+    min_x = min(wood_min[0], rack_min[0])
+    min_y = min(wood_min[1], rack_min[1])
+    min_z = min(wood_min[2], rack_min[2])
+    max_x = max(wood_max[0], rack_max[0])
+    max_y = max(wood_max[1], rack_max[1])
+    max_z = max(wood_max[2], rack_max[2])
+    return ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5, (min_z + max_z) * 0.5)
 
 
 def main():
@@ -248,6 +310,7 @@ def main():
         - (config_thin.side_x * 0.5)
         + config_thin.side_x
     )
+    rail_length_thin = rail_length_from_config(units, config_thin)
 
     build_rack(
         bpy.context,
@@ -285,9 +348,6 @@ def main():
     right_x_face = inside_right_thin + config_thin.rail_outset
     front_y = -(config_thin.top_bottom_y * 0.5) + 30.0
     back_y = (config_thin.top_bottom_y * 0.5) - 30.0
-    y_front_offset = config_thin.rail_rack_width * 0.5
-    y_back_offset = config_thin.rail_rack_width * 0.5
-    side_z_center_thin_m = side_z_center_thin * 0.001
 
     rail_front_left = bpy.data.objects.get("MU_Rail_Front_Left")
     rail_front_right = bpy.data.objects.get("MU_Rail_Front_Right")
@@ -298,27 +358,57 @@ def main():
     assert rail_back_left is not None
     assert rail_back_right is not None
 
-    _assert_point(
-        rail_front_left.location,
-        ((left_x_face * 0.001), (front_y - y_front_offset) * 0.001, side_z_center_thin_m),
+    wood_dimensions = (
+        config_thin.rail_wood_width,
+        config_thin.rail_thickness,
+        rail_length_thin,
     )
-    _assert_point(
-        rail_front_right.location,
-        ((right_x_face * 0.001), (front_y - y_front_offset) * 0.001, side_z_center_thin_m),
+    rack_dimensions = (
+        config_thin.rail_thickness,
+        config_thin.rail_rack_width,
+        rail_length_thin,
     )
-    _assert_point(
-        rail_back_left.location,
-        ((left_x_face * 0.001), (back_y + y_back_offset) * 0.001, side_z_center_thin_m),
-    )
-    _assert_point(
-        rail_back_right.location,
-        ((right_x_face * 0.001), (back_y + y_back_offset) * 0.001, side_z_center_thin_m),
-    )
+
+    def _expected_bounds_center(x_face, x_inward, y_face, y_inward, rotation_z):
+        wood_center, rack_center = rail_component_centers_mm(
+            x_face,
+            x_inward,
+            y_face,
+            y_inward,
+            side_z_center_thin,
+            config_thin,
+            rotation_z=rotation_z,
+        )
+        return _combined_bounds_center(
+            wood_center,
+            rack_center,
+            wood_dimensions,
+            rack_dimensions,
+            rotation_z,
+        )
+
+    rail_expectations = [
+        (rail_front_left, left_x_face, 1.0, front_y, -1.0, math.radians(90.0)),
+        (rail_front_right, right_x_face, -1.0, front_y, -1.0, math.radians(-90.0)),
+        (rail_back_left, left_x_face, 1.0, back_y, 1.0, math.radians(-90.0)),
+        (rail_back_right, right_x_face, -1.0, back_y, 1.0, math.radians(90.0)),
+    ]
+
+    for rail_obj, x_face, x_inward, y_face, y_inward, rotation_z in rail_expectations:
+        _assert_point(
+            _mesh_bounds_center(rail_obj),
+            tuple(
+                value * 0.001
+                for value in _expected_bounds_center(
+                    x_face,
+                    x_inward,
+                    y_face,
+                    y_inward,
+                    rotation_z,
+                )
+            ),
+        )
 
 
 if __name__ == "__main__":
     main()
-def _assert_point(actual, expected, tolerance=1e-6):
-    assert abs(actual[0] - expected[0]) < tolerance
-    assert abs(actual[1] - expected[1]) < tolerance
-    assert abs(actual[2] - expected[2]) < tolerance

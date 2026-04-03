@@ -18,8 +18,6 @@ def build_panel(name, dimensions, location, material, collection, context):
     obj.location = location
 
     if material is not None:
-        obj.data.materials.clear()
-        obj.data.materials.append(material)
         mesh.materials.clear()
         mesh.materials.append(material)
         if obj.material_slots:
