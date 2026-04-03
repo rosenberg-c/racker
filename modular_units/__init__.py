@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Modular Units",
     "author": "",
-    "version": (0, 1, 104),
+    "version": (0, 1, 118),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds a simple 19-inch rack shell",
@@ -45,6 +45,11 @@ class MU_OT_add_rack(bpy.types.Operator):
         name="Back Rails",
         default=True,
     )
+    material_thickness: bpy.props.FloatProperty(
+        name="Material Thickness (mm)",
+        default=18.0,
+        min=1.0,
+    )
 
     def execute(self, context):
         return build_rack(
@@ -55,6 +60,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             self.front_rails,
             self.back_rails,
             context.scene.mu_material,
+            self.material_thickness,
         )
 
 
@@ -77,18 +83,29 @@ class MU_PT_panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         layout.label(text="Add Rack")
-        layout.prop(context.scene, "mu_units")
-        layout.prop(context.scene, "mu_material")
-        layout.prop(context.scene, "mu_rail_offset_front")
-        layout.prop(context.scene, "mu_rail_offset_back")
-        layout.prop(context.scene, "mu_front_rails")
-        layout.prop(context.scene, "mu_back_rails")
+        basics_box = layout.box()
+        basics_box.prop(context.scene, "mu_units")
+        basics_box.prop(context.scene, "mu_material")
+        layout.separator()
+        front_box = layout.box()
+        front_box.prop(context.scene, "mu_front_rails")
+        front_box.prop(context.scene, "mu_rail_offset_front")
+        layout.separator()
+        back_box = layout.box()
+        back_box.prop(context.scene, "mu_back_rails")
+        back_box.prop(context.scene, "mu_rail_offset_back")
+        layout.separator()
+        material_box = layout.box()
+        material_box.prop(context.scene, "mu_material_thickness")
+        layout.separator()
         op = layout.operator(MU_OT_add_rack.bl_idname, text="Create Rack")
+
         op.units = context.scene.mu_units
         op.rail_offset_front = context.scene.mu_rail_offset_front
         op.rail_offset_back = context.scene.mu_rail_offset_back
         op.front_rails = context.scene.mu_front_rails
         op.back_rails = context.scene.mu_back_rails
+        op.material_thickness = context.scene.mu_material_thickness
 
 
 def menu_func(self, context):
@@ -133,6 +150,11 @@ def register():
         name="Back Rails",
         default=True,
     )
+    bpy.types.Scene.mu_material_thickness = bpy.props.FloatProperty(
+        name="Material Thickness (mm)",
+        default=18.0,
+        min=1.0,
+    )
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
 
 
@@ -144,6 +166,7 @@ def unregister():
     del bpy.types.Scene.mu_rail_offset_front
     del bpy.types.Scene.mu_material
     del bpy.types.Scene.mu_units
+    del bpy.types.Scene.mu_material_thickness
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 

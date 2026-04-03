@@ -38,8 +38,12 @@ def build_rack(
     front_rails,
     back_rails,
     material_selection,
+    material_thickness,
 ):
-    config = RackConfig()
+    config = RackConfig(
+        top_bottom_z=material_thickness,
+        side_x=material_thickness,
+    )
     mm_to_m = 0.001
     total_height = total_height_from_config(units, config)
     side_z = total_height
@@ -113,8 +117,11 @@ def build_rack(
     top_z = total_height - (config.top_bottom_z * 0.5)
     bottom_z = config.top_bottom_z * 0.5
     side_z_center = total_height * 0.5
-    side_x_offset = (config.top_bottom_x * 0.5) - (config.side_x * 0.5) + 18.0
-    inside_x_face_left, inside_x_face_right = rail_x_faces_from_config(config, 0.0)
+    side_x_offset = (config.top_bottom_x * 0.5) - (config.side_x * 0.5) + config.side_x
+    inside_x_face_left, inside_x_face_right = rail_x_faces_from_config(
+        config,
+        config.side_x - 18.0,
+    )
     inside_y_face_front, inside_y_face_back = rail_face_y_from_config(
         config,
         rail_offset_front,
