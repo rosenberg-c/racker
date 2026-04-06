@@ -1,14 +1,17 @@
+from . import ui_text
+
 bl_info = {
-    "name": "Racker",
+    "name": ui_text.ADDON_NAME,
     "author": "",
     "version": (0, 1, 121),
     "blender": (3, 0, 0),
     "location": "View3D > Add > Mesh",
-    "description": "Adds a simple 19-inch rack shell",
-    "category": "Add Mesh",
+    "description": ui_text.ADDON_DESCRIPTION,
+    "category": ui_text.ADDON_CATEGORY,
 }
 
 ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
+PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
 
 import bpy
 from .rack_builder import build_rack, mu_material_items
@@ -16,39 +19,39 @@ from .rack_builder import build_rack, mu_material_items
 
 class MU_OT_add_rack(bpy.types.Operator):
     bl_idname = "mesh.mu_add_rack"
-    bl_label = "Add Racker Rack"
+    bl_label = ui_text.OPERATOR_LABEL
     bl_options = {"REGISTER", "UNDO"}
 
     units: bpy.props.IntProperty(
-        name="Units (U)",
+        name=ui_text.PROP_UNITS,
         default=10,
         min=1,
     )
     rail_offset: bpy.props.FloatProperty(
-        name="Rail Offset (mm)",
+        name=ui_text.PROP_RAIL_OFFSET,
         default=30.0,
         min=0.0,
     )
     rail_offset_front: bpy.props.FloatProperty(
-        name="Front Rail Offset (mm)",
+        name=ui_text.PROP_RAIL_OFFSET_FRONT,
         default=30.0,
         min=0.0,
     )
     rail_offset_back: bpy.props.FloatProperty(
-        name="Back Rail Offset (mm)",
+        name=ui_text.PROP_RAIL_OFFSET_BACK,
         default=30.0,
         min=0.0,
     )
     front_rails: bpy.props.BoolProperty(
-        name="Front Rails (AH 61535B5)",
+        name=ui_text.PROP_FRONT_RAILS,
         default=True,
     )
     back_rails: bpy.props.BoolProperty(
-        name="Back Railsi (AH 61535B5)",
+        name=ui_text.PROP_BACK_RAILS,
         default=True,
     )
     material_thickness: bpy.props.FloatProperty(
-        name="Material Thickness (mm)",
+        name=ui_text.PROP_MATERIAL_THICKNESS,
         default=18.0,
         min=1.0,
     )
@@ -67,7 +70,7 @@ class MU_OT_add_rack(bpy.types.Operator):
 
 
 class MU_MT_menu(bpy.types.Menu):
-    bl_label = "Racker"
+    bl_label = ui_text.MENU_LABEL
     bl_idname = "MU_MT_menu"
 
     def draw(self, context):
@@ -76,15 +79,15 @@ class MU_MT_menu(bpy.types.Menu):
 
 
 class MU_PT_panel(bpy.types.Panel):
-    bl_label = f"Racker v{ADDON_VERSION}"
+    bl_label = PANEL_LABEL
     bl_idname = "MU_PT_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Racker"
+    bl_category = ui_text.PANEL_CATEGORY
 
     def draw(self, context):
         layout = self.layout
-        layout.label(text="Add Rack")
+        layout.label(text=ui_text.PANEL_ADD_LABEL)
         basics_box = layout.box()
         basics_box.prop(context.scene, "mu_units")
         basics_box.prop(context.scene, "mu_material")
@@ -100,7 +103,7 @@ class MU_PT_panel(bpy.types.Panel):
         material_box = layout.box()
         material_box.prop(context.scene, "mu_material_thickness")
         layout.separator()
-        op = layout.operator(MU_OT_add_rack.bl_idname, text="Create Rack")
+        op = layout.operator(MU_OT_add_rack.bl_idname, text=ui_text.PANEL_CREATE_LABEL)
 
         op.units = context.scene.mu_units
         op.rail_offset_front = context.scene.mu_rail_offset_front
@@ -125,35 +128,35 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Scene.mu_units = bpy.props.IntProperty(
-        name="Units (U)",
+        name=ui_text.PROP_UNITS,
         default=10,
         min=1,
     )
     bpy.types.Scene.mu_material = bpy.props.EnumProperty(
-        name="Material",
+        name=ui_text.PROP_MATERIAL,
         items=mu_material_items,
         default=0,
     )
     bpy.types.Scene.mu_rail_offset_front = bpy.props.FloatProperty(
-        name="Front Rail Offset (mm)",
+        name=ui_text.PROP_RAIL_OFFSET_FRONT,
         default=30.0,
         min=0.0,
     )
     bpy.types.Scene.mu_rail_offset_back = bpy.props.FloatProperty(
-        name="Back Rail Offset (mm)",
+        name=ui_text.PROP_RAIL_OFFSET_BACK,
         default=30.0,
         min=0.0,
     )
     bpy.types.Scene.mu_front_rails = bpy.props.BoolProperty(
-        name="Front Rails (AH 61535B5)",
+        name=ui_text.PROP_FRONT_RAILS,
         default=True,
     )
     bpy.types.Scene.mu_back_rails = bpy.props.BoolProperty(
-        name="Back Rails (AH 61535B5)",
+        name=ui_text.PROP_BACK_RAILS,
         default=True,
     )
     bpy.types.Scene.mu_material_thickness = bpy.props.FloatProperty(
-        name="Material Thickness (mm)",
+        name=ui_text.PROP_MATERIAL_THICKNESS,
         default=18.0,
         min=1.0,
     )
