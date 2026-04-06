@@ -9,9 +9,9 @@ VENV_DIR := .venv
 PYTHON := $(VENV_DIR)/bin/python
 PIP := $(PYTHON) -m pip
 
-.PHONY: zip bump-patch install clean-install restart-blender venv install-dev test clean blender-test test-all pytest-test
+.PHONY: zip bump-patch release install clean-install restart-blender venv install-dev test clean blender-test test-all pytest-test
 
-zip: bump-patch
+zip:
 	@mkdir -p $(DIST_DIR)
 	@rm -f $(ZIP_FILE)
 	@zip -r $(ZIP_FILE) $(PLUGIN_NAME) \
@@ -30,6 +30,8 @@ zip: bump-patch
 
 bump-patch:
 	@python3 scripts/bump_version.py $(VERSION_FILE)
+
+release: bump-patch zip
 
 clean:
 	@rm -rf $(DIST_DIR)
