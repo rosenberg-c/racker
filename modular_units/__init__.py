@@ -8,6 +8,8 @@ bl_info = {
     "category": "Add Mesh",
 }
 
+ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
+
 import bpy
 from .rack_builder import build_rack, mu_material_items
 
@@ -38,11 +40,11 @@ class MU_OT_add_rack(bpy.types.Operator):
         min=0.0,
     )
     front_rails: bpy.props.BoolProperty(
-        name="Front Rails",
+        name="Front Rails (AH 61535B5)",
         default=True,
     )
     back_rails: bpy.props.BoolProperty(
-        name="Back Rails",
+        name="Back Railsi (AH 61535B5)",
         default=True,
     )
     material_thickness: bpy.props.FloatProperty(
@@ -74,7 +76,7 @@ class MU_MT_menu(bpy.types.Menu):
 
 
 class MU_PT_panel(bpy.types.Panel):
-    bl_label = "Racker"
+    bl_label = f"Racker v{ADDON_VERSION}"
     bl_idname = "MU_PT_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -143,11 +145,11 @@ def register():
         min=0.0,
     )
     bpy.types.Scene.mu_front_rails = bpy.props.BoolProperty(
-        name="Front Rails",
+        name="Front Rails (AH 61535B5)",
         default=True,
     )
     bpy.types.Scene.mu_back_rails = bpy.props.BoolProperty(
-        name="Back Rails",
+        name="Back Rails (AH 61535B5)",
         default=True,
     )
     bpy.types.Scene.mu_material_thickness = bpy.props.FloatProperty(
