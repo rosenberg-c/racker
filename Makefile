@@ -47,7 +47,7 @@ clean-install: zip
 	@unzip -o "$(ZIP_FILE)" -d "$(BLENDER_ADDONS_DIR)"
 	@"$(BLENDER_BIN)" --background --python-expr "import bpy; bpy.ops.preferences.addon_enable(module='$(PLUGIN_NAME)'); bpy.ops.wm.save_userpref()"
 
-restart-blender:
+restart-blender: bump-patch
 	@pkill -f "Blender.app/Contents/MacOS/Blender" || true
 	@$(MAKE) install
 	@open -a Blender -n
