@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "Modular Units",
+    "name": "Racker",
     "author": "",
     "version": (0, 1, 121),
     "blender": (3, 0, 0),
@@ -14,7 +14,7 @@ from .rack_builder import build_rack, mu_material_items
 
 class MU_OT_add_rack(bpy.types.Operator):
     bl_idname = "mesh.mu_add_rack"
-    bl_label = "Add Modular Units Rack"
+    bl_label = "Add Racker Rack"
     bl_options = {"REGISTER", "UNDO"}
 
     units: bpy.props.IntProperty(
@@ -65,7 +65,7 @@ class MU_OT_add_rack(bpy.types.Operator):
 
 
 class MU_MT_menu(bpy.types.Menu):
-    bl_label = "Modular Units"
+    bl_label = "Racker"
     bl_idname = "MU_MT_menu"
 
     def draw(self, context):
@@ -74,11 +74,11 @@ class MU_MT_menu(bpy.types.Menu):
 
 
 class MU_PT_panel(bpy.types.Panel):
-    bl_label = "Modular Units"
+    bl_label = "Racker"
     bl_idname = "MU_PT_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Modular Units"
+    bl_category = "Racker"
 
     def draw(self, context):
         layout = self.layout
