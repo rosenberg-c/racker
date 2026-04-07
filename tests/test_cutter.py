@@ -10,9 +10,20 @@ _cutter_module = importlib.util.module_from_spec(_cutter_spec)
 assert _cutter_spec.loader is not None
 _cutter_spec.loader.exec_module(_cutter_module)
 
+_select_path = (
+    Path(__file__).resolve().parents[1] / "modular_units" / "cutter_select.py"
+)
+_select_spec = importlib.util.spec_from_file_location("mu_cutter_select", _select_path)
+assert _select_spec is not None
+_select_module = importlib.util.module_from_spec(_select_spec)
+assert _select_spec.loader is not None
+_select_spec.loader.exec_module(_select_module)
+
 parse_lengths_csv = _cutter_module.parse_lengths_csv
 board_used_length = _cutter_module.board_used_length
 calculate_cut_plan = _cutter_module.calculate_cut_plan
+matches_prefix = _select_module.matches_prefix
+matches_instance_root = _select_module.matches_instance_root
 
 
 def test_parse_lengths_csv():
@@ -92,3 +103,44 @@ def test_calculate_cut_plan_mixed_lengths():
     _boards, total_stock, waste = plan
     assert total_stock == 900
     assert waste == 150
+
+
+class _Dummy:
+    def __init__(self, name, original=None, parent=None):
+        self.name = name
+        self.original = original
+        self.parent = parent
+
+
+class _Instance:
+    def __init__(self, instance_object=None, parent=None):
+        self.instance_object = instance_object
+        self.parent = parent
+
+
+def test_matches_prefix_uses_original_name():
+    original = _Dummy("MU_Panel")
+    eval_obj = _Dummy("PanelEval", original=original)
+    assert matches_prefix(eval_obj)
+    assert not matches_prefix(_Dummy("Other"))
+
+
+def test_matches_instance_root_direct_instance():
+    root = _Dummy("Root")
+    inst = _Instance(instance_object=_Dummy("RootEval", original=root))
+    assert matches_instance_root(inst, root)
+
+
+def test_matches_instance_root_nested_parent_chain():
+    root = _Dummy("Root")
+    parent = _Dummy("ParentEval", original=root)
+    child = _Dummy("ChildEval", parent=parent)
+    inst = _Instance(parent=child)
+    assert matches_instance_root(inst, root)
+
+
+def test_matches_instance_root_mismatch():
+    root = _Dummy("Root")
+    other = _Dummy("Other")
+    inst = _Instance(instance_object=other)
+    assert not matches_instance_root(inst, root)

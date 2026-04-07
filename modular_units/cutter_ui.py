@@ -3,20 +3,68 @@ from __future__ import annotations
 from typing import List
 
 import bpy
+from mathutils import Vector
 
 from . import ui_text
 from .cutter import board_used_length, calculate_cut_plan, parse_lengths_csv
+from .cutter_select import matches_instance_root, matches_prefix
+
+
+def _max_dimension_from_bounds(bound_box, matrix_world) -> float:
+    coords = [matrix_world @ Vector(corner) for corner in bound_box]
+    xs = [point.x for point in coords]
+    ys = [point.y for point in coords]
+    zs = [point.z for point in coords]
+    return max(max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
+
+
+def _object_length_mm(obj, depsgraph) -> int:
+    eval_obj = obj.evaluated_get(depsgraph)
+    if not matches_prefix(eval_obj):
+        return 0
+    dims = getattr(eval_obj, "dimensions", None)
+    if dims is None:
+        return 0
+    length_mm = max(dims) * 1000.0
+    return int(round(length_mm)) if length_mm > 0 else 0
+
+
+def _instance_collection_lengths_mm(obj, depsgraph) -> List[int]:
+    lengths = []
+    for inst in depsgraph.object_instances:
+        if not matches_instance_root(inst, obj):
+            continue
+        eval_obj = inst.object
+        if eval_obj is None or eval_obj.type == "EMPTY":
+            continue
+        if not matches_prefix(eval_obj):
+            continue
+        bound_box = getattr(eval_obj, "bound_box", None)
+        if not bound_box:
+            continue
+        dimension = _max_dimension_from_bounds(bound_box, inst.matrix_world)
+        length_mm = dimension * 1000.0
+        if length_mm > 0:
+            lengths.append(int(round(length_mm)))
+    return lengths
 
 
 def _selected_lengths_mm(context) -> List[int]:
     lengths = []
+    depsgraph = context.evaluated_depsgraph_get()
+
     for obj in context.selected_objects:
-        dims = getattr(obj, "dimensions", None)
-        if dims is None:
-            continue
-        length_mm = max(dims) * 1000.0
+        if obj.instance_collection is not None:
+            lengths.extend(_instance_collection_lengths_mm(obj, depsgraph))
+        length_mm = _object_length_mm(obj, depsgraph)
         if length_mm > 0:
-            lengths.append(int(round(length_mm)))
+            lengths.append(length_mm)
+
+        for child in obj.children_recursive:
+            child_length = _object_length_mm(child, depsgraph)
+            if child_length > 0:
+                lengths.append(child_length)
+
     return lengths
 
 
