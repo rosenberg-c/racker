@@ -14,6 +14,7 @@ ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
 PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
 
 import bpy
+from .cutter_ui import CUTTER_CLASSES, register_cutter_properties, unregister_cutter_properties
 from .rack_builder import build_rack, mu_material_items
 
 
@@ -121,12 +122,14 @@ classes = (
     MU_OT_add_rack,
     MU_MT_menu,
     MU_PT_panel,
+    *CUTTER_CLASSES,
 )
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    register_cutter_properties()
     bpy.types.Scene.mu_units = bpy.props.IntProperty(
         name=ui_text.PROP_UNITS,
         default=10,
@@ -172,6 +175,7 @@ def unregister():
     del bpy.types.Scene.mu_material
     del bpy.types.Scene.mu_units
     del bpy.types.Scene.mu_material_thickness
+    unregister_cutter_properties()
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 
