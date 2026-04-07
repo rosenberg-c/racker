@@ -3,19 +3,9 @@ from __future__ import annotations
 from typing import List
 
 import bpy
-from mathutils import Vector
-
 from . import ui_text
 from .cutter import board_used_length, calculate_cut_plan, parse_lengths_csv
 from .cutter_select import matches_instance_root, matches_prefix
-
-
-def _max_dimension_from_bounds(bound_box, matrix_world) -> float:
-    coords = [matrix_world @ Vector(corner) for corner in bound_box]
-    xs = [point.x for point in coords]
-    ys = [point.y for point in coords]
-    zs = [point.z for point in coords]
-    return max(max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
 
 
 def _object_length_mm(obj, depsgraph) -> int:
@@ -25,7 +15,7 @@ def _object_length_mm(obj, depsgraph) -> int:
     dims = getattr(eval_obj, "dimensions", None)
     if dims is None:
         return 0
-    length_mm = max(dims) * 1000.0
+    length_mm = dims.x * 1000.0
     return int(round(length_mm)) if length_mm > 0 else 0
 
 
@@ -39,11 +29,11 @@ def _instance_collection_lengths_mm(obj, depsgraph) -> List[int]:
             continue
         if not matches_prefix(eval_obj):
             continue
-        bound_box = getattr(eval_obj, "bound_box", None)
-        if not bound_box:
+        dims = getattr(eval_obj, "dimensions", None)
+        if dims is None:
             continue
-        dimension = _max_dimension_from_bounds(bound_box, inst.matrix_world)
-        length_mm = dimension * 1000.0
+        scale_x = inst.matrix_world.to_scale().x
+        length_mm = dims.x * scale_x * 1000.0
         if length_mm > 0:
             lengths.append(int(round(length_mm)))
     return lengths
