@@ -71,10 +71,6 @@ def calculate_cut_plan(
         if best_total is not None and total_length > best_total:
             return
 
-        remaining_sum = sum(pieces[index:])
-        if best_total is not None and total_length + remaining_sum > best_total:
-            return
-
         state_key = (index, board_state(boards))
         prev_best = memo.get(state_key)
         if prev_best is not None and total_length >= prev_best:
