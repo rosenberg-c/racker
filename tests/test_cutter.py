@@ -23,6 +23,7 @@ parse_lengths_csv = _cutter_module.parse_lengths_csv
 board_used_length = _cutter_module.board_used_length
 calculate_cut_plan = _cutter_module.calculate_cut_plan
 matches_prefix = _select_module.matches_prefix
+matches_cutter_piece = _select_module.matches_cutter_piece
 matches_instance_root = _select_module.matches_instance_root
 
 
@@ -123,6 +124,11 @@ def test_matches_prefix_uses_original_name():
     eval_obj = _Dummy("PanelEval", original=original)
     assert matches_prefix(eval_obj)
     assert not matches_prefix(_Dummy("Other"))
+
+
+def test_matches_cutter_piece_excludes_rails():
+    assert matches_cutter_piece(_Dummy("MU_Panel"))
+    assert not matches_cutter_piece(_Dummy("MU_Rail_Front_Left"))
 
 
 def test_matches_instance_root_direct_instance():

@@ -9,6 +9,13 @@ def matches_prefix(obj, prefix: str = "MU_") -> bool:
     return original_name(obj).startswith(prefix)
 
 
+def matches_cutter_piece(obj, prefix: str = "MU_") -> bool:
+    name = original_name(obj)
+    if not name.startswith(prefix):
+        return False
+    return not name.startswith("MU_Rail")
+
+
 def matches_instance_root(inst, root_obj) -> bool:
     root_original = getattr(root_obj, "original", root_obj)
 

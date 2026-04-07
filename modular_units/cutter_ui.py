@@ -5,12 +5,12 @@ from typing import List
 import bpy
 from . import ui_text
 from .cutter import board_used_length, calculate_cut_plan, parse_lengths_csv
-from .cutter_select import matches_instance_root, matches_prefix
+from .cutter_select import matches_cutter_piece, matches_instance_root
 
 
 def _object_length_mm(obj, depsgraph) -> int:
     eval_obj = obj.evaluated_get(depsgraph)
-    if not matches_prefix(eval_obj):
+    if not matches_cutter_piece(eval_obj):
         return 0
     dims = getattr(eval_obj, "dimensions", None)
     if dims is None:
@@ -27,7 +27,7 @@ def _instance_collection_lengths_mm(obj, depsgraph) -> List[int]:
         eval_obj = inst.object
         if eval_obj is None or eval_obj.type == "EMPTY":
             continue
-        if not matches_prefix(eval_obj):
+        if not matches_cutter_piece(eval_obj):
             continue
         dims = getattr(eval_obj, "dimensions", None)
         if dims is None:
