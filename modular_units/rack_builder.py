@@ -65,7 +65,18 @@ def build_rack(
             material = bpy.data.materials.new(name=name)
         return material
 
-    def add_box(name, dimensions, location, material, collection, rotation=None):
+    def add_box(
+        name,
+        dimensions,
+        location,
+        material,
+        collection,
+        rotation=None,
+        uv_rotation=None,
+        top_bottom_uv_mode="default",
+        apply_rotation_to_mesh=True,
+    ):
+        mesh_rotation = rotation if apply_rotation_to_mesh else None
         obj = build_panel(
             name,
             to_m(dimensions),
@@ -73,8 +84,11 @@ def build_rack(
             material,
             collection,
             context,
+            rotation=mesh_rotation,
+            uv_rotation=uv_rotation,
+            top_bottom_uv_mode=top_bottom_uv_mode,
         )
-        if rotation is not None:
+        if rotation is not None and not apply_rotation_to_mesh:
             obj.rotation_euler = rotation
         return obj
 
@@ -139,33 +153,41 @@ def build_rack(
 
     add_box(
         "MU_Top",
-        (config.top_bottom_z, config.top_bottom_y, config.top_bottom_x),
+        (config.top_bottom_x, config.top_bottom_y, config.top_bottom_z),
         (0.0, 0.0, top_z),
         material,
         collection,
-        rotation=(0.0, math.radians(90.0), 0.0),
+        uv_rotation=(0.0, math.radians(90.0), 0.0),
+        top_bottom_uv_mode="standard",
     )
     add_box(
         "MU_Bottom",
-        (config.top_bottom_z, config.top_bottom_y, config.top_bottom_x),
+        (config.top_bottom_x, config.top_bottom_y, config.top_bottom_z),
         (0.0, 0.0, bottom_z),
         material,
         collection,
-        rotation=(0.0, math.radians(90.0), 0.0),
+        uv_rotation=(0.0, math.radians(90.0), 0.0),
+        top_bottom_uv_mode="standard",
     )
     add_box(
         "MU_Side_Left",
-        (config.side_x, config.side_y, side_z),
+        (side_z, config.side_y, config.side_x),
         (-side_x_offset, 0.0, side_z_center),
         material,
         collection,
+        rotation=(0.0, math.radians(90.0), 0.0),
+        uv_rotation=(0.0, math.radians(90.0), 0.0),
+        apply_rotation_to_mesh=False,
     )
     add_box(
         "MU_Side_Right",
-        (config.side_x, config.side_y, side_z),
+        (side_z, config.side_y, config.side_x),
         (side_x_offset, 0.0, side_z_center),
         material,
         collection,
+        rotation=(0.0, math.radians(90.0), 0.0),
+        uv_rotation=(0.0, math.radians(90.0), 0.0),
+        apply_rotation_to_mesh=False,
     )
 
     if front_rails:

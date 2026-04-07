@@ -5,13 +5,26 @@ import bmesh
 import mathutils
 
 
-def build_panel(name, dimensions, location, material, collection, context):
+def build_panel(
+    name,
+    dimensions,
+    location,
+    material,
+    collection,
+    context,
+    rotation=None,
+    uv_rotation=None,
+    top_bottom_uv_mode="default",
+):
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     collection.objects.link(obj)
 
     bm = bmesh.new()
     _add_box(bm, dimensions, (0.0, 0.0, 0.0), rotation_z=None)
+    if rotation is not None:
+        rot = mathutils.Euler(rotation, "XYZ").to_matrix().to_4x4()
+        bmesh.ops.rotate(bm, verts=list(bm.verts), cent=(0.0, 0.0, 0.0), matrix=rot)
     bm.to_mesh(mesh)
     bm.free()
 
@@ -26,7 +39,12 @@ def build_panel(name, dimensions, location, material, collection, context):
         obj.active_material = material
         mesh.update()
 
-    _apply_uv_cube_project(context, obj)
+    if uv_rotation is not None:
+        _rotate_mesh(mesh, uv_rotation)
+        _apply_uv_cube_project(context, obj, top_bottom_uv_mode=top_bottom_uv_mode)
+        _rotate_mesh(mesh, tuple(-value for value in uv_rotation))
+    else:
+        _apply_uv_cube_project(context, obj, top_bottom_uv_mode=top_bottom_uv_mode)
 
     return obj
 
@@ -119,7 +137,7 @@ def _add_cylinder(bm, radius, depth, location, rotation):
     bmesh.ops.translate(bm, verts=verts, vec=location)
 
 
-def _apply_uv_cube_project(context, obj):
+def _apply_uv_cube_project(context, obj, top_bottom_uv_mode="default"):
     view_layer = context.view_layer
     prev_active = view_layer.objects.active
     prev_selected = list(context.selected_objects)
@@ -143,7 +161,16 @@ def _apply_uv_cube_project(context, obj):
         view_layer.objects.active = prev_active
 
     _rotate_uvs_for_axis_faces(obj.data, axis="X", clockwise=True)
-    if obj.name in {"MU_Top", "MU_Bottom"}:
+    is_top_bottom = obj.name in {"MU_Top", "MU_Bottom"}
+    if is_top_bottom and top_bottom_uv_mode == "default":
+        _remap_uvs_for_axis_faces(
+            obj.data,
+            axis="Z",
+            u_axis="X",
+            v_axis="Y",
+            flip_u=False,
+            flip_v=False,
+        )
         _remap_uvs_for_axis_faces(
             obj.data,
             axis="Y",
@@ -153,7 +180,20 @@ def _apply_uv_cube_project(context, obj):
             flip_v=False,
         )
     else:
-        _rotate_uvs_for_axis_faces(obj.data, axis="Y", clockwise=True)
+        _rotate_uvs_for_axis_faces_by_normal(
+            obj.data,
+            axis="Y",
+            clockwise_for_positive=True,
+        )
+
+
+def _rotate_mesh(mesh, rotation):
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    rot = mathutils.Euler(rotation, "XYZ").to_matrix().to_4x4()
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0.0, 0.0, 0.0), matrix=rot)
+    bm.to_mesh(mesh)
+    bm.free()
 
 
 def _apply_boolean_difference(context, target_obj, cutter_obj):

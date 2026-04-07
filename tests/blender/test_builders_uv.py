@@ -57,6 +57,11 @@ def _axis_from_normal(normal):
     return "Z"
 
 
+def _axis_from_world_normal(normal, matrix_world):
+    world_normal = (matrix_world.to_3x3() @ normal).normalized()
+    return _axis_from_normal(world_normal)
+
+
 def _expected_grain_axis(dimensions, face_axis):
     dims = {"X": dimensions[0], "Y": dimensions[1], "Z": dimensions[2]}
     plane_axes = [axis for axis in ("X", "Y", "Z") if axis != face_axis]
@@ -91,6 +96,55 @@ def _assert_uv_orientation_for_all_faces(
             u, _v = uv_layer.data[loop_index].uv
             vert_index = mesh.loops[loop_index].vertex_index
             vert = mesh.vertices[vert_index].co
+            us.append(u)
+            xs.append(vert.x)
+            ys.append(vert.y)
+            zs.append(vert.z)
+
+        corrs = {
+            "X": _axis_corr(us, xs),
+            "Y": _axis_corr(us, ys),
+            "Z": _axis_corr(us, zs),
+        }
+        spans = {
+            "X": max(xs) - min(xs),
+            "Y": max(ys) - min(ys),
+            "Z": max(zs) - min(zs),
+        }
+        assert corrs[expected_axis] >= tolerance, (
+            f"face_axis={face_axis} expected_u={expected_axis} corrs={corrs} spans={spans}"
+        )
+
+
+def _assert_uv_u_orientation_for_axis_faces(
+    obj,
+    face_axis,
+    expected_axis,
+    tolerance=0.9,
+    use_world=False,
+):
+    mesh = obj.data
+    uv_layer = mesh.uv_layers.active
+    assert uv_layer is not None
+
+    for face in mesh.polygons:
+        if use_world:
+            axis = _axis_from_world_normal(face.normal, obj.matrix_world)
+        else:
+            axis = _axis_from_normal(face.normal)
+        if axis != face_axis:
+            continue
+
+        us = []
+        xs = []
+        ys = []
+        zs = []
+        for loop_index in face.loop_indices:
+            u, _v = uv_layer.data[loop_index].uv
+            vert_index = mesh.loops[loop_index].vertex_index
+            vert = mesh.vertices[vert_index].co
+            if use_world:
+                vert = obj.matrix_world @ vert
             us.append(u)
             xs.append(vert.x)
             ys.append(vert.y)
@@ -210,32 +264,20 @@ def main():
         material,
         collection,
         bpy.context,
+        uv_rotation=(0.0, math.radians(90.0), 0.0),
+        top_bottom_uv_mode="standard",
     )
     top.name = "MU_Top"
 
     side = build_panel(
         "MU_Side_Left",
-        (0.018, 0.4, 0.48),
+        (0.48, 0.4, 0.018),
         (1.0, 0.0, 0.0),
         material,
         collection,
         bpy.context,
+        uv_rotation=(0.0, math.radians(90.0), 0.0),
     )
-
-    for obj in (top, side):
-        _apply_uv_cube_project(bpy.context, obj)
-        _rotate_uvs_for_axis_faces(obj.data, axis="X", clockwise=True)
-        if obj.name in {"MU_Top", "MU_Bottom"}:
-            _remap_uvs_for_axis_faces(
-                obj.data,
-                axis="Y",
-                u_axis="Z",
-                v_axis="X",
-                flip_u=False,
-                flip_v=False,
-            )
-        else:
-            _rotate_uvs_for_axis_faces(obj.data, axis="Y", clockwise=True)
 
     for obj in (top, side):
         assert obj.data.materials
@@ -250,9 +292,32 @@ def main():
     assert len(side_centroids) in (1, 6)
 
     if len(top_centroids) == 6:
-        _assert_uv_orientation_for_all_faces(top, (0.49, 0.4, 0.018))
+        _assert_uv_orientation_for_all_faces(
+            top,
+            (0.49, 0.4, 0.018),
+            include_axes=("Y", "Z"),
+        )
+        _assert_uv_u_orientation_for_axis_faces(top, "Z", "X")
+        _assert_uv_u_orientation_for_axis_faces(top, "Y", "X")
+        _assert_uv_u_orientation_for_axis_faces(
+            top,
+            "Y",
+            "X",
+            use_world=True,
+        )
     if len(side_centroids) == 6:
-        _assert_uv_orientation_for_all_faces(side, (0.018, 0.4, 0.48))
+        _assert_uv_orientation_for_all_faces(
+            side,
+            (0.48, 0.4, 0.018),
+            include_axes=("Y", "Z"),
+        )
+        _assert_uv_u_orientation_for_axis_faces(side, "Z", "X")
+        _assert_uv_u_orientation_for_axis_faces(
+            side,
+            "Y",
+            "X",
+            use_world=True,
+        )
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
@@ -288,11 +353,11 @@ def main():
     assert abs(bottom_obj.location.z - (bottom_z * 0.001)) < 1e-6
 
     assert abs(top_obj.rotation_euler.x - 0.0) < 1e-6
-    assert abs(top_obj.rotation_euler.y - (math.radians(90.0))) < 1e-6
+    assert abs(top_obj.rotation_euler.y - 0.0) < 1e-6
     assert abs(top_obj.rotation_euler.z - 0.0) < 1e-6
 
     assert abs(bottom_obj.rotation_euler.x - 0.0) < 1e-6
-    assert abs(bottom_obj.rotation_euler.y - (math.radians(90.0))) < 1e-6
+    assert abs(bottom_obj.rotation_euler.y - 0.0) < 1e-6
     assert abs(bottom_obj.rotation_euler.z - 0.0) < 1e-6
 
     bpy.ops.object.select_all(action="SELECT")
