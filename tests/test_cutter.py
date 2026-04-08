@@ -107,6 +107,8 @@ def test_calculate_cut_plan_mixed_lengths():
     assert waste == 150
 
 
+
+
 def test_cut_operations_for_plan_with_stack():
     boards = [(1000, [400, 400]), (1000, [400])]
     assert cut_operations_for_plan(boards, 1) == 3

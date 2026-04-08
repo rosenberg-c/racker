@@ -37,11 +37,18 @@ def cut_operations_for_plan(
     max_stack: int,
 ) -> int:
     stack = max(1, int(max_stack))
+    groups = stack_groups_for_plan(boards)
+    return sum(math.ceil(count / stack) * len(key) for key, count in groups)
+
+
+def stack_groups_for_plan(
+    boards: List[Tuple[int, List[int]]],
+) -> List[Tuple[Tuple[int, ...], int]]:
     groups = {}
     for _board_length, pieces in boards:
         key = tuple(sorted(pieces))
         groups[key] = groups.get(key, 0) + 1
-    return sum(math.ceil(count / stack) * len(key) for key, count in groups.items())
+    return sorted(groups.items(), key=lambda item: (-item[1], -len(item[0]), item[0]))
 
 
 def calculate_cut_plan(

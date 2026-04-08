@@ -3,7 +3,7 @@ from . import ui_text
 bl_info = {
     "name": ui_text.ADDON_NAME,
     "author": "",
-    "version": (0, 1, 156),
+    "version": (0, 1, 162),
     "blender": (5, 0, 0),
     "location": "View3D > Add > Mesh",
     "description": ui_text.ADDON_DESCRIPTION,

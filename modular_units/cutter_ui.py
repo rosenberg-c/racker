@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import List
 
 import bpy
@@ -9,6 +10,7 @@ from .cutter import (
     calculate_cut_plan,
     cut_operations_for_plan,
     parse_lengths_csv,
+    stack_groups_for_plan,
 )
 from .cutter_select import matches_cutter_piece, matches_instance_root
 
@@ -93,6 +95,7 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
         boards, total_stock, waste = plan
         cut_ops = cut_operations_for_plan(boards, max_stack)
         boards_sorted = sorted(boards, key=lambda entry: (-entry[0], -len(entry[1])))
+        stack_groups = stack_groups_for_plan(boards) if max_stack > 1 else []
 
         lines = [
             ui_text.PANEL_CUTTER_RESULTS_LABEL,
@@ -104,6 +107,20 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
             ui_text.INFO_CUTTER_LENGTH_SOURCE,
             "",
         ]
+
+        if max_stack > 1:
+            if stack_groups:
+                lines.append("Stack groups:")
+                for piece_list, count in stack_groups:
+                    pieces_text = ", ".join(str(piece) for piece in piece_list)
+                    batches = math.ceil(count / max_stack)
+                    lines.append(
+                        f"{count} boards: {pieces_text} (batch {max_stack} x {batches})"
+                    )
+                lines.append("")
+            else:
+                lines.append("Stack groups: none")
+                lines.append("")
 
         for board_length, board_pieces in boards_sorted:
             used = board_used_length(board_pieces, kerf_mm)
