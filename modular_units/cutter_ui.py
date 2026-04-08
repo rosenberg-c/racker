@@ -26,6 +26,22 @@ def _addon_prefs(context):
     return getattr(addon, "preferences", None)
 
 
+def apply_cutter_defaults(scene, prefs=None) -> None:
+    if scene is None:
+        return
+    if not hasattr(scene, "mu_cutter_stock_lengths"):
+        return
+    default_lengths = ui_text.DEFAULT_STOCK_LENGTHS
+    default_costs = ui_text.DEFAULT_STOCK_COSTS
+    if prefs is not None:
+        default_lengths = prefs.cutter_default_stock_lengths or default_lengths
+        default_costs = prefs.cutter_default_stock_costs or default_costs
+    if not scene.mu_cutter_stock_lengths:
+        scene.mu_cutter_stock_lengths = default_lengths
+    if not scene.mu_cutter_stock_costs:
+        scene.mu_cutter_stock_costs = default_costs
+
+
 def _section_title(title: str, width: int = 40, left_pad: int = 2) -> str:
     label = f" {title} "
     if left_pad < 0:
@@ -230,21 +246,6 @@ class MU_OT_cutter_copy_results(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class MU_OT_cutter_apply_defaults(bpy.types.Operator):
-    bl_idname = "mu.cutter_apply_defaults"
-    bl_label = "Apply Defaults"
-
-    def execute(self, context):
-        prefs = _addon_prefs(context)
-        if prefs is None:
-            self.report({"WARNING"}, "Addon preferences not found")
-            return {"CANCELLED"}
-        context.scene.mu_cutter_stock_lengths = prefs.cutter_default_stock_lengths
-        context.scene.mu_cutter_stock_costs = prefs.cutter_default_stock_costs
-        self.report({"INFO"}, "Cutter defaults applied")
-        return {"FINISHED"}
-
-
 class MU_PT_cutter_panel(bpy.types.Panel):
     bl_label = ui_text.PANEL_CUTTER_LABEL
     bl_idname = "MU_PT_cutter_panel"
@@ -259,12 +260,6 @@ class MU_PT_cutter_panel(bpy.types.Panel):
             layout.label(text="Cutter properties not registered")
             layout.label(text="Disable and re-enable the add-on")
             return
-        if prefs is not None and (
-            not context.scene.mu_cutter_stock_lengths
-            or not context.scene.mu_cutter_stock_costs
-        ):
-            layout.label(text="Defaults available from add-on prefs")
-            layout.operator(MU_OT_cutter_apply_defaults.bl_idname)
         layout.prop(context.scene, "mu_cutter_stock_lengths")
         layout.prop(context.scene, "mu_cutter_stock_costs")
         layout.prop(context.scene, "mu_cutter_kerf")
@@ -282,7 +277,6 @@ class MU_PT_cutter_panel(bpy.types.Panel):
 CUTTER_CLASSES = (
     MU_OT_cutter_calculate,
     MU_OT_cutter_copy_results,
-    MU_OT_cutter_apply_defaults,
     MU_PT_cutter_panel,
 )
 

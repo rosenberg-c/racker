@@ -14,7 +14,12 @@ ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
 PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
 
 import bpy
-from .cutter_ui import CUTTER_CLASSES, register_cutter_properties, unregister_cutter_properties
+from .cutter_ui import (
+    CUTTER_CLASSES,
+    apply_cutter_defaults,
+    register_cutter_properties,
+    unregister_cutter_properties,
+)
 from .rack_builder import build_rack, mu_material_items
 
 
@@ -146,6 +151,13 @@ classes = (
 )
 
 
+def _apply_cutter_defaults_handler(_dummy):
+    prefs_entry = bpy.context.preferences.addons.get("modular_units")
+    prefs = prefs_entry.preferences if prefs_entry else None
+    for scene in bpy.data.scenes:
+        apply_cutter_defaults(scene, prefs)
+
+
 def register():
     register_cutter_properties()
     for cls in classes:
@@ -184,11 +196,16 @@ def register():
         min=1.0,
     )
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
+    _apply_cutter_defaults_handler(None)
+    if _apply_cutter_defaults_handler not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(_apply_cutter_defaults_handler)
 
 
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+    if _apply_cutter_defaults_handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(_apply_cutter_defaults_handler)
     bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
     del bpy.types.Scene.mu_back_rails
     del bpy.types.Scene.mu_front_rails
