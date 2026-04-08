@@ -14,7 +14,7 @@ ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
 PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
 
 import bpy
-from .cutter import parse_stock_materials_csv
+from .cutter import StockMaterial, parse_stock_materials_csv
 from .cutter_ui import CUTTER_CLASSES, register_cutter_properties, unregister_cutter_properties
 from .rack_builder import build_rack, mu_material_items
 
@@ -122,28 +122,94 @@ class MU_PT_panel(bpy.types.Panel):
 def _material_thickness_items(self, context):
     prefs_entry = context.preferences.addons.get("modular_units") if context else None
     prefs = prefs_entry.preferences if prefs_entry else None
-    materials_value = (
-        prefs.cutter_materials_list if prefs is not None else ui_text.DEFAULT_STOCK_MATERIALS
-    )
-    materials = parse_stock_materials_csv(materials_value)
-    thicknesses = sorted({material.thickness_mm for material in materials})
+    materials = list(getattr(prefs, "materials", [])) if prefs is not None else []
+    if not materials:
+        materials = parse_stock_materials_csv(ui_text.DEFAULT_STOCK_MATERIALS)
+        thicknesses = sorted({material.thickness_mm for material in materials})
+    else:
+        thicknesses = sorted({material.thickness_mm for material in materials})
     if not thicknesses:
         thicknesses = [18.0]
     return [(str(value), f"{value} mm", "") for value in thicknesses]
 
 
+class MU_MaterialItem(bpy.types.PropertyGroup):
+    length_mm: bpy.props.IntProperty(name="Length (mm)", default=800, min=1)
+    cost: bpy.props.FloatProperty(name="Cost", default=0.0, min=0.0)
+    thickness_mm: bpy.props.FloatProperty(
+        name="Thickness (mm)", default=18.0, min=0.1
+    )
+
+
+class MU_UL_materials(bpy.types.UIList):
+    def draw_item(self, context, layout, _data, item, _icon, _active_data, _active_propname, _index):
+        if self.layout_type in {"DEFAULT", "COMPACT"}:
+            layout.label(text=f"{item.length_mm} mm | {item.cost:.2f} | {item.thickness_mm} mm")
+        elif self.layout_type == "GRID":
+            layout.alignment = "CENTER"
+            layout.label(text=str(item.length_mm))
+
+
+class MU_OT_material_add(bpy.types.Operator):
+    bl_idname = "mu.material_add"
+    bl_label = "Add Material"
+
+    def execute(self, context):
+        prefs = context.preferences.addons["modular_units"].preferences
+        item = prefs.materials.add()
+        item.length_mm = 800
+        item.cost = 0.0
+        item.thickness_mm = 18.0
+        prefs.materials_index = len(prefs.materials) - 1
+        return {"FINISHED"}
+
+
+class MU_OT_material_remove(bpy.types.Operator):
+    bl_idname = "mu.material_remove"
+    bl_label = "Remove Material"
+
+    def execute(self, context):
+        prefs = context.preferences.addons["modular_units"].preferences
+        index = prefs.materials_index
+        if 0 <= index < len(prefs.materials):
+            prefs.materials.remove(index)
+            prefs.materials_index = max(0, min(index, len(prefs.materials) - 1))
+        return {"FINISHED"}
+
+
+class MU_PT_materials_panel(bpy.types.Panel):
+    bl_label = "Materials"
+    bl_idname = "MU_PT_materials_panel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = ui_text.PANEL_CATEGORY
+
+    def draw(self, context):
+        layout = self.layout
+        prefs = context.preferences.addons.get("modular_units").preferences
+        row = layout.row()
+        row.template_list("MU_UL_materials", "", prefs, "materials", prefs, "materials_index")
+        col = row.column(align=True)
+        col.operator(MU_OT_material_add.bl_idname, text="", icon="ADD")
+        col.operator(MU_OT_material_remove.bl_idname, text="", icon="REMOVE")
+
+        if prefs.materials and 0 <= prefs.materials_index < len(prefs.materials):
+            item = prefs.materials[prefs.materials_index]
+            layout.prop(item, "length_mm")
+            layout.prop(item, "cost")
+            layout.prop(item, "thickness_mm")
+
+
 class MU_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = "modular_units"
 
-    cutter_materials_list: bpy.props.StringProperty(
-        name=ui_text.PROP_CUTTER_MATERIALS,
-        default=ui_text.DEFAULT_STOCK_MATERIALS,
-    )
+    materials: bpy.props.CollectionProperty(type=MU_MaterialItem)
+    materials_index: bpy.props.IntProperty(default=0, min=0)
 
     def draw(self, context):
         layout = self.layout
         layout.label(text=ui_text.PANEL_CUTTER_LABEL)
-        layout.prop(self, "cutter_materials_list")
+        layout.label(text="Materials are managed in the panel UI")
 
 
 def menu_func(self, context):
@@ -151,12 +217,28 @@ def menu_func(self, context):
 
 
 classes = (
+    MU_MaterialItem,
+    MU_UL_materials,
+    MU_OT_material_add,
+    MU_OT_material_remove,
+    MU_PT_materials_panel,
+    MU_AddonPreferences,
     MU_OT_add_rack,
     MU_MT_menu,
     MU_PT_panel,
-    MU_AddonPreferences,
     *CUTTER_CLASSES,
 )
+
+
+def _ensure_default_materials(prefs):
+    if prefs.materials:
+        return
+    materials = parse_stock_materials_csv(ui_text.DEFAULT_STOCK_MATERIALS)
+    for material in materials:
+        item = prefs.materials.add()
+        item.length_mm = material.length_mm
+        item.cost = material.cost
+        item.thickness_mm = material.thickness_mm
 
 
 
@@ -165,6 +247,9 @@ def register():
     register_cutter_properties()
     for cls in classes:
         bpy.utils.register_class(cls)
+    prefs_entry = bpy.context.preferences.addons.get("modular_units")
+    if prefs_entry is not None:
+        _ensure_default_materials(prefs_entry.preferences)
     bpy.types.Scene.mu_units = bpy.props.IntProperty(
         name=ui_text.PROP_UNITS,
         default=10,

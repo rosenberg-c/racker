@@ -24,10 +24,6 @@ def _addon_prefs(context):
     return getattr(addon, "preferences", None)
 
 
-def _material_defaults(prefs) -> str:
-    if prefs is not None and getattr(prefs, "cutter_materials_list", None):
-        return prefs.cutter_materials_list
-    return ui_text.DEFAULT_STOCK_MATERIALS
 
 
 def _section_title(title: str, width: int = 40, left_pad: int = 2) -> str:
@@ -99,8 +95,9 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
 
     def execute(self, context):
         prefs = _addon_prefs(context)
-        materials_value = _material_defaults(prefs)
-        materials = parse_stock_materials_csv(materials_value)
+        materials = list(getattr(prefs, "materials", [])) if prefs is not None else []
+        if not materials:
+            materials = parse_stock_materials_csv(ui_text.DEFAULT_STOCK_MATERIALS)
         kerf_mm = int(round(context.scene.mu_cutter_kerf))
         max_stack = max(1, int(round(context.scene.mu_cutter_max_stack)))
         cut_cost = float(context.scene.mu_cutter_cut_cost)
@@ -216,9 +213,11 @@ class MU_PT_cutter_panel(bpy.types.Panel):
             layout.label(text="Cutter properties not registered")
             layout.label(text="Disable and re-enable the add-on")
             return
-        prefs = _addon_prefs(context)
         layout.label(text=ui_text.PROP_CUTTER_MATERIALS)
-        layout.label(text=_material_defaults(prefs))
+        if prefs is not None and getattr(prefs, "materials", None):
+            layout.label(text=f"{len(prefs.materials)} materials defined")
+        else:
+            layout.label(text="Using default materials")
         layout.prop(context.scene, "mu_cutter_kerf")
         layout.prop(context.scene, "mu_cutter_max_stack")
         layout.prop(context.scene, "mu_cutter_cut_cost")
