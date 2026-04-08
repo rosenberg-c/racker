@@ -47,6 +47,38 @@ def parse_costs_csv(value: str) -> List[float]:
     return _coerce_positive_floats(token.strip() for token in tokens if token.strip())
 
 
+class StockMaterial:
+    __slots__ = ("length_mm", "cost")
+
+    def __init__(self, length_mm: int, cost: float) -> None:
+        self.length_mm = length_mm
+        self.cost = cost
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, StockMaterial):
+            return False
+        return self.length_mm == other.length_mm and self.cost == other.cost
+
+    def __repr__(self) -> str:
+        return f"StockMaterial(length_mm={self.length_mm}, cost={self.cost})"
+
+
+def build_stock_materials(
+    lengths_mm: List[int],
+    costs: List[float],
+) -> Optional[List[StockMaterial]]:
+    if not lengths_mm or not costs:
+        return None
+    if len(lengths_mm) != len(costs):
+        return None
+    materials = []
+    for length, cost in zip(lengths_mm, costs):
+        if length <= 0 or cost <= 0:
+            continue
+        materials.append(StockMaterial(length_mm=length, cost=cost))
+    return materials if materials else None
+
+
 def board_used_length(pieces: List[int], kerf: int) -> int:
     if not pieces:
         return 0
@@ -126,10 +158,9 @@ def stack_groups_for_plan(
 
 def calculate_cut_plan(
     pieces_mm: List[int],
-    stock_lengths_mm: List[int],
+    stock_materials: Optional[List[StockMaterial]],
     kerf_mm: int,
     max_stack: int = 1,
-    stock_costs: Optional[List[float]] = None,
     cut_cost: float = 0.0,
     timeout_seconds: float = 2.0,
     return_meta: bool = False,
@@ -140,14 +171,19 @@ def calculate_cut_plan(
     ]
 ]:
     pieces = sorted(_coerce_positive_ints(pieces_mm), reverse=True)
-    stock_lengths = sorted(set(_coerce_positive_ints(stock_lengths_mm)))
+    stock_lengths = []
     costs_by_length = None
-    if stock_costs is not None:
-        costs = _coerce_positive_floats(stock_costs)
-        if len(costs) == len(stock_lengths_mm):
-            costs_by_length = {
-                length: cost for length, cost in zip(stock_lengths_mm, costs)
-            }
+    if stock_materials:
+        stock_lengths = sorted({material.length_mm for material in stock_materials})
+        costs_by_length = {}
+        for material in stock_materials:
+            current = costs_by_length.get(material.length_mm)
+            if current is None or material.cost < current:
+                costs_by_length[material.length_mm] = material.cost
+    cost_priority = False
+    if costs_by_length is not None:
+        unique_costs = {value for value in costs_by_length.values()}
+        cost_priority = len(unique_costs) > 1 or cut_cost > 0.0
     kerf = max(0, int(round(kerf_mm)))
     stack = max(1, int(max_stack))
 
@@ -164,7 +200,7 @@ def calculate_cut_plan(
     best_cost = None
     min_board_cost = None
     max_stock_length = max(stock_lengths) if stock_lengths else 0
-    if costs_by_length is not None:
+    if costs_by_length is not None and cost_priority:
         min_board_cost = min(costs_by_length.values()) if costs_by_length else None
     timed_out = False
     start_time = time.monotonic()
@@ -176,7 +212,7 @@ def calculate_cut_plan(
     def is_better(total_length, waste, cut_ops, board_count, total_cost):
         if best_total is None:
             return True
-        if costs_by_length is not None:
+        if cost_priority:
             if total_cost < best_cost:
                 return True
             if total_cost == best_cost and total_length < best_total:
@@ -223,7 +259,7 @@ def calculate_cut_plan(
                 timed_out = True
                 return
 
-        if costs_by_length is not None and best_cost is not None and min_board_cost:
+        if cost_priority and best_cost is not None and min_board_cost:
             remaining_pieces = pieces[index:]
             if remaining_pieces:
                 remaining_length = sum(remaining_pieces) + kerf * (len(remaining_pieces) - 1)
@@ -232,13 +268,13 @@ def calculate_cut_plan(
                 min_boards_needed = 0
             current_cost = material_cost_for_plan(
                 [(board["length"], board["pieces"]) for board in boards],
-                costs_by_length,
+                costs_by_length or {},
             )
             lower_bound = current_cost + (min_boards_needed * min_board_cost)
             if lower_bound >= best_cost:
                 return
 
-        if costs_by_length is None:
+        if not cost_priority:
             if best_total is not None and total_length > best_total:
                 return
 
@@ -254,8 +290,8 @@ def calculate_cut_plan(
             plan = [(board["length"], list(board["pieces"])) for board in boards]
             cut_ops = cut_operations_for_plan(plan, stack)
             total_cost = 0.0
-            if costs_by_length is not None:
-                total_cost = material_cost_for_plan(plan, costs_by_length)
+            if cost_priority:
+                total_cost = material_cost_for_plan(plan, costs_by_length or {})
                 total_cost += cut_ops * float(cut_cost)
             if is_better(total_length, waste, cut_ops, board_count, total_cost):
                 best_total = total_length
@@ -280,7 +316,7 @@ def calculate_cut_plan(
         for stock in stock_lengths:
             if stock < length:
                 continue
-            if costs_by_length is None:
+            if not cost_priority:
                 if best_total is not None and total_length + stock > best_total:
                     continue
             board = {"length": stock, "used": length, "pieces": [length]}

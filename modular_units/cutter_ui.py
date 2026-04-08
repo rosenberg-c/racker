@@ -7,6 +7,7 @@ import bpy
 from . import ui_text
 from .cutter import (
     board_used_length,
+    build_stock_materials,
     calculate_cut_plan,
     cut_operations_for_plan,
     material_cost_for_plan,
@@ -114,6 +115,8 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
         cut_cost = float(context.scene.mu_cutter_cut_cost)
         pieces = _selected_lengths_mm(context)
 
+        materials = build_stock_materials(stock_lengths, stock_costs)
+
         if not pieces:
             context.scene.mu_cutter_results = "No selected objects."
             self.report({"WARNING"}, "No selected objects")
@@ -136,12 +139,16 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
             self.report({"WARNING"}, "Stock costs must match stock lengths count")
             return {"CANCELLED"}
 
+        if not materials:
+            context.scene.mu_cutter_results = "No valid stock materials provided."
+            self.report({"WARNING"}, "No valid stock materials provided")
+            return {"CANCELLED"}
+
         plan = calculate_cut_plan(
             pieces,
-            stock_lengths,
+            materials,
             kerf_mm,
             max_stack,
-            stock_costs,
             cut_cost,
             return_meta=True,
         )
@@ -158,9 +165,7 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
         cut_ops = cut_operations_for_plan(boards, max_stack)
         boards_sorted = sorted(boards, key=lambda entry: (-entry[0], -len(entry[1])))
         stack_groups = stack_groups_for_plan(boards) if max_stack > 1 else []
-        costs_by_length = {
-            length: cost for length, cost in zip(stock_lengths, stock_costs)
-        }
+        costs_by_length = {material.length_mm: material.cost for material in materials}
         material_cost = material_cost_for_plan(boards, costs_by_length)
         total_cost = material_cost + (cut_ops * cut_cost)
 

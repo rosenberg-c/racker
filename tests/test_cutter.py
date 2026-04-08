@@ -21,6 +21,8 @@ _select_spec.loader.exec_module(_select_module)
 
 parse_lengths_csv = _cutter_module.parse_lengths_csv
 parse_costs_csv = _cutter_module.parse_costs_csv
+build_stock_materials = _cutter_module.build_stock_materials
+StockMaterial = _cutter_module.StockMaterial
 board_used_length = _cutter_module.board_used_length
 calculate_cut_plan = _cutter_module.calculate_cut_plan
 cut_operations_for_plan = _cutter_module.cut_operations_for_plan
@@ -41,6 +43,14 @@ def test_parse_costs_csv():
     assert parse_costs_csv(" ") == []
 
 
+def test_build_stock_materials():
+    materials = build_stock_materials([800, 1200], [10.0, 12.5])
+    assert materials == [
+        StockMaterial(length_mm=800, cost=10.0),
+        StockMaterial(length_mm=1200, cost=12.5),
+    ]
+
+
 def test_board_used_length():
     assert board_used_length([], 4) == 0
     assert board_used_length([490], 4) == 490
@@ -58,7 +68,8 @@ def test_calculate_cut_plan_prefers_lower_cost():
     stock = [800, 1000]
     costs = [20.0, 1.0]
 
-    plan = calculate_cut_plan(pieces, stock, 0, 1, costs, 0.0)
+    materials = build_stock_materials(stock, costs)
+    plan = calculate_cut_plan(pieces, materials, 0, 1, 0.0)
     assert plan is not None
     boards, total_stock, waste = plan
     assert total_stock == 1000
@@ -70,7 +81,8 @@ def test_calculate_cut_plan_minimum_stock():
     stock = [800, 1200, 2000]
     kerf = 4
 
-    plan = calculate_cut_plan(pieces, stock, kerf)
+    materials = build_stock_materials(stock, [1.0, 1.0, 1.0])
+    plan = calculate_cut_plan(pieces, materials, kerf)
     assert plan is not None
 
     boards, total_stock, waste = plan
@@ -84,14 +96,16 @@ def test_calculate_cut_plan_minimum_stock():
 def test_calculate_cut_plan_invalid_piece():
     pieces = [2100]
     stock = [800, 1200, 2000]
-    plan = calculate_cut_plan(pieces, stock, 4)
+    materials = build_stock_materials(stock, [1.0, 1.0, 1.0])
+    plan = calculate_cut_plan(pieces, materials, 4)
     assert plan is None
 
 
 def test_calculate_cut_plan_prefers_single_board():
     pieces = [100, 100, 100]
     stock = [250, 400]
-    plan = calculate_cut_plan(pieces, stock, 0)
+    materials = build_stock_materials(stock, [1.0, 1.0])
+    plan = calculate_cut_plan(pieces, materials, 0)
 
     assert plan is not None
     _boards, total_stock, waste = plan
@@ -102,7 +116,8 @@ def test_calculate_cut_plan_prefers_single_board():
 def test_calculate_cut_plan_respects_kerf():
     pieces = [100, 100, 100]
     stock = [300, 400]
-    plan = calculate_cut_plan(pieces, stock, 4)
+    materials = build_stock_materials(stock, [1.0, 1.0])
+    plan = calculate_cut_plan(pieces, materials, 4)
 
     assert plan is not None
     _boards, total_stock, waste = plan
@@ -113,7 +128,8 @@ def test_calculate_cut_plan_respects_kerf():
 def test_calculate_cut_plan_multiple_boards():
     pieces = [300, 300, 300, 300]
     stock = [500, 700]
-    plan = calculate_cut_plan(pieces, stock, 5)
+    materials = build_stock_materials(stock, [1.0, 1.0])
+    plan = calculate_cut_plan(pieces, materials, 5)
 
     assert plan is not None
     _boards, total_stock, waste = plan
@@ -124,7 +140,8 @@ def test_calculate_cut_plan_multiple_boards():
 def test_calculate_cut_plan_mixed_lengths():
     pieces = [250, 250, 250]
     stock = [300, 600]
-    plan = calculate_cut_plan(pieces, stock, 0)
+    materials = build_stock_materials(stock, [1.0, 1.0])
+    plan = calculate_cut_plan(pieces, materials, 0)
 
     assert plan is not None
     _boards, total_stock, waste = plan
