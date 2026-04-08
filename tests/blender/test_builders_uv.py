@@ -26,6 +26,13 @@ _repo_root = Path(__file__).resolve().parents[2]
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
+def _reload_modular_units():
+    for name in list(sys.modules):
+        if name == "modular_units" or name.startswith("modular_units."):
+            del sys.modules[name]
+
+
+_reload_modular_units()
 _rack_module = importlib.import_module("modular_units.rack_builder")
 build_rack = _rack_module.build_rack
 RackConfig = _rack_module.RackConfig
@@ -337,6 +344,7 @@ def main():
         True,
         "MU_CREATE_DEFAULT",
         18.0,
+        depth_mm=400.0,
     )
 
     top_obj = bpy.data.objects.get("MU_Top")
@@ -386,6 +394,7 @@ def main():
         True,
         "MU_CREATE_DEFAULT",
         thin_thickness,
+        depth_mm=400.0,
     )
 
     side_left = bpy.data.objects.get("MU_Side_Left")

@@ -45,18 +45,23 @@ def test_parse_costs_csv():
 
 
 def test_parse_stock_materials_csv():
-    materials = parse_stock_materials_csv("800:199:18, 1200:169:18")
+    materials = parse_stock_materials_csv("800:199:18:400, 1200:169:18:400")
     assert materials == [
-        StockMaterial(length_mm=800, cost=199.0, thickness_mm=18.0),
-        StockMaterial(length_mm=1200, cost=169.0, thickness_mm=18.0),
+        StockMaterial(length_mm=800, cost=199.0, thickness_mm=18.0, depth_mm=400.0),
+        StockMaterial(length_mm=1200, cost=169.0, thickness_mm=18.0, depth_mm=400.0),
     ]
 
 
 def test_build_stock_materials():
-    materials = build_stock_materials([800, 1200], [10.0, 12.5])
+    materials = build_stock_materials(
+        [800, 1200],
+        [10.0, 12.5],
+        [18.0, 18.0],
+        [400.0, 400.0],
+    )
     assert materials == [
-        StockMaterial(length_mm=800, cost=10.0, thickness_mm=0.0),
-        StockMaterial(length_mm=1200, cost=12.5, thickness_mm=0.0),
+        StockMaterial(length_mm=800, cost=10.0, thickness_mm=18.0, depth_mm=400.0),
+        StockMaterial(length_mm=1200, cost=12.5, thickness_mm=18.0, depth_mm=400.0),
     ]
 
 
@@ -77,7 +82,7 @@ def test_calculate_cut_plan_prefers_lower_cost():
     stock = [800, 1000]
     costs = [20.0, 1.0]
 
-    materials = build_stock_materials(stock, costs)
+    materials = build_stock_materials(stock, costs, [18.0, 18.0], [400.0, 400.0])
     plan = calculate_cut_plan(pieces, materials, 0, 1, 0.0)
     assert plan is not None
     boards, total_stock, waste = plan
@@ -90,7 +95,12 @@ def test_calculate_cut_plan_minimum_stock():
     stock = [800, 1200, 2000]
     kerf = 4
 
-    materials = build_stock_materials(stock, [1.0, 1.0, 1.0])
+    materials = build_stock_materials(
+        stock,
+        [1.0, 1.0, 1.0],
+        [18.0, 18.0, 18.0],
+        [400.0, 400.0, 400.0],
+    )
     plan = calculate_cut_plan(pieces, materials, kerf)
     assert plan is not None
 
@@ -105,7 +115,12 @@ def test_calculate_cut_plan_minimum_stock():
 def test_calculate_cut_plan_invalid_piece():
     pieces = [2100]
     stock = [800, 1200, 2000]
-    materials = build_stock_materials(stock, [1.0, 1.0, 1.0])
+    materials = build_stock_materials(
+        stock,
+        [1.0, 1.0, 1.0],
+        [18.0, 18.0, 18.0],
+        [400.0, 400.0, 400.0],
+    )
     plan = calculate_cut_plan(pieces, materials, 4)
     assert plan is None
 
@@ -113,7 +128,12 @@ def test_calculate_cut_plan_invalid_piece():
 def test_calculate_cut_plan_prefers_single_board():
     pieces = [100, 100, 100]
     stock = [250, 400]
-    materials = build_stock_materials(stock, [1.0, 1.0])
+    materials = build_stock_materials(
+        stock,
+        [1.0, 1.0],
+        [18.0, 18.0],
+        [400.0, 400.0],
+    )
     plan = calculate_cut_plan(pieces, materials, 0)
 
     assert plan is not None
@@ -125,7 +145,12 @@ def test_calculate_cut_plan_prefers_single_board():
 def test_calculate_cut_plan_respects_kerf():
     pieces = [100, 100, 100]
     stock = [300, 400]
-    materials = build_stock_materials(stock, [1.0, 1.0])
+    materials = build_stock_materials(
+        stock,
+        [1.0, 1.0],
+        [18.0, 18.0],
+        [400.0, 400.0],
+    )
     plan = calculate_cut_plan(pieces, materials, 4)
 
     assert plan is not None
@@ -137,7 +162,12 @@ def test_calculate_cut_plan_respects_kerf():
 def test_calculate_cut_plan_multiple_boards():
     pieces = [300, 300, 300, 300]
     stock = [500, 700]
-    materials = build_stock_materials(stock, [1.0, 1.0])
+    materials = build_stock_materials(
+        stock,
+        [1.0, 1.0],
+        [18.0, 18.0],
+        [400.0, 400.0],
+    )
     plan = calculate_cut_plan(pieces, materials, 5)
 
     assert plan is not None
@@ -149,7 +179,12 @@ def test_calculate_cut_plan_multiple_boards():
 def test_calculate_cut_plan_mixed_lengths():
     pieces = [250, 250, 250]
     stock = [300, 600]
-    materials = build_stock_materials(stock, [1.0, 1.0])
+    materials = build_stock_materials(
+        stock,
+        [1.0, 1.0],
+        [18.0, 18.0],
+        [400.0, 400.0],
+    )
     plan = calculate_cut_plan(pieces, materials, 0)
 
     assert plan is not None

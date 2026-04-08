@@ -39,10 +39,13 @@ def build_rack(
     back_rails,
     material_selection,
     material_thickness,
+    depth_mm=400.0,
 ):
     config = RackConfig(
         top_bottom_z=material_thickness,
         side_x=material_thickness,
+        top_bottom_y=depth_mm,
+        side_y=depth_mm,
     )
     mm_to_m = 0.001
     total_height = total_height_from_config(units, config)

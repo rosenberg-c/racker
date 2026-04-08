@@ -14,7 +14,7 @@ ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
 PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
 
 import bpy
-from .cutter import StockMaterial, parse_stock_materials_csv
+from .cutter import parse_stock_materials_csv
 from .cutter_ui import CUTTER_CLASSES, register_cutter_properties, unregister_cutter_properties
 from .rack_builder import build_rack, mu_material_items
 
@@ -63,6 +63,10 @@ class MU_OT_add_rack(bpy.types.Operator):
             thickness = float(context.scene.mu_material_thickness)
         except (TypeError, ValueError):
             thickness = 18.0
+        try:
+            depth = float(context.scene.mu_material_depth)
+        except (TypeError, ValueError):
+            depth = 400.0
         return build_rack(
             context,
             self.units,
@@ -72,6 +76,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             self.back_rails,
             context.scene.mu_material,
             thickness,
+            depth_mm=depth,
         )
 
 
@@ -108,6 +113,7 @@ class MU_PT_panel(bpy.types.Panel):
         layout.separator()
         material_box = layout.box()
         material_box.prop(context.scene, "mu_material_thickness")
+        material_box.prop(context.scene, "mu_material_depth")
         layout.separator()
         op = layout.operator(MU_OT_add_rack.bl_idname, text=ui_text.PANEL_CREATE_LABEL)
 
@@ -133,19 +139,46 @@ def _material_thickness_items(self, context):
     return [(str(value), f"{value} mm", "") for value in thicknesses]
 
 
+def _material_depth_items(self, context):
+    prefs_entry = context.preferences.addons.get("modular_units") if context else None
+    prefs = prefs_entry.preferences if prefs_entry else None
+    materials = list(getattr(prefs, "materials", [])) if prefs is not None else []
+    if not materials:
+        materials = parse_stock_materials_csv(ui_text.DEFAULT_STOCK_MATERIALS)
+        depths = sorted({material.depth_mm for material in materials})
+    else:
+        depths = sorted({material.depth_mm for material in materials})
+    if not depths:
+        depths = [400.0]
+    return [(str(value), f"{value} mm", "") for value in depths]
+
+
+def _material_depth_for_thickness(context, thickness: float) -> float:
+    prefs_entry = context.preferences.addons.get("modular_units") if context else None
+    prefs = prefs_entry.preferences if prefs_entry else None
+    materials = list(getattr(prefs, "materials", [])) if prefs is not None else []
+    if not materials:
+        materials = parse_stock_materials_csv(ui_text.DEFAULT_STOCK_MATERIALS)
+    for material in materials:
+        if abs(material.thickness_mm - thickness) < 1e-6:
+            return material.depth_mm
+    return 400.0
+
+
 class MU_MaterialItem(bpy.types.PropertyGroup):
     length_mm: bpy.props.IntProperty(name="Length (mm)", default=800, min=1)
     cost: bpy.props.FloatProperty(name="Cost", default=0.0, min=0.0)
     thickness_mm: bpy.props.FloatProperty(
         name="Thickness (mm)", default=18.0, min=0.1
     )
+    depth_mm: bpy.props.FloatProperty(name="Depth (mm)", default=400.0, min=1.0)
 
 
 class MU_UL_materials(bpy.types.UIList):
     def draw_item(self, context, layout, _data, item, _icon, _active_data, _active_propname, _index):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             split = layout.split(factor=0.75)
-            split.label(text=f"{item.thickness_mm} x {item.length_mm} mm")
+            split.label(text=f"{item.thickness_mm} x {item.depth_mm} x {item.length_mm} mm")
             split.label(text=f"{item.cost:.2f}")
         elif self.layout_type == "GRID":
             layout.alignment = "CENTER"
@@ -162,6 +195,7 @@ class MU_OT_material_add(bpy.types.Operator):
         item.length_mm = 800
         item.cost = 0.0
         item.thickness_mm = 18.0
+        item.depth_mm = 400.0
         prefs.materials_index = len(prefs.materials) - 1
         return {"FINISHED"}
 
@@ -191,7 +225,7 @@ class MU_PT_materials_panel(bpy.types.Panel):
         prefs = context.preferences.addons.get("modular_units").preferences
         header = layout.row()
         header_split = header.split(factor=0.75)
-        header_split.label(text="Thickness x Length")
+        header_split.label(text="Thickness x Depth x Length")
         header_split.label(text="Cost")
         row = layout.row()
         row.template_list("MU_UL_materials", "", prefs, "materials", prefs, "materials_index")
@@ -214,6 +248,7 @@ class MU_PT_materials_panel(bpy.types.Panel):
                 layout.prop(item, "length_mm")
                 layout.prop(item, "cost")
                 layout.prop(item, "thickness_mm")
+                layout.prop(item, "depth_mm")
 
 
 
@@ -301,6 +336,11 @@ def register():
         items=_material_thickness_items,
         default=0,
     )
+    bpy.types.Scene.mu_material_depth = bpy.props.EnumProperty(
+        name=ui_text.PROP_MATERIAL_DEPTH,
+        items=_material_depth_items,
+        default=0,
+    )
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
 
 
@@ -315,6 +355,7 @@ def unregister():
     del bpy.types.Scene.mu_material
     del bpy.types.Scene.mu_units
     del bpy.types.Scene.mu_material_thickness
+    del bpy.types.Scene.mu_material_depth
     unregister_cutter_properties()
 
 
