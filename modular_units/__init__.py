@@ -114,6 +114,25 @@ class MU_PT_panel(bpy.types.Panel):
         op.material_thickness = context.scene.mu_material_thickness
 
 
+class MU_AddonPreferences(bpy.types.AddonPreferences):
+    bl_idname = "modular_units"
+
+    cutter_default_stock_lengths: bpy.props.StringProperty(
+        name=ui_text.PROP_CUTTER_STOCK_LENGTHS,
+        default=ui_text.DEFAULT_STOCK_LENGTHS,
+    )
+    cutter_default_stock_costs: bpy.props.StringProperty(
+        name=ui_text.PROP_CUTTER_STOCK_COSTS,
+        default=ui_text.DEFAULT_STOCK_COSTS,
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text=ui_text.PANEL_CUTTER_LABEL)
+        layout.prop(self, "cutter_default_stock_lengths")
+        layout.prop(self, "cutter_default_stock_costs")
+
+
 def menu_func(self, context):
     self.layout.menu(MU_MT_menu.bl_idname)
 
@@ -122,14 +141,15 @@ classes = (
     MU_OT_add_rack,
     MU_MT_menu,
     MU_PT_panel,
+    MU_AddonPreferences,
     *CUTTER_CLASSES,
 )
 
 
 def register():
+    register_cutter_properties()
     for cls in classes:
         bpy.utils.register_class(cls)
-    register_cutter_properties()
     bpy.types.Scene.mu_units = bpy.props.IntProperty(
         name=ui_text.PROP_UNITS,
         default=10,
@@ -167,6 +187,8 @@ def register():
 
 
 def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
     bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
     del bpy.types.Scene.mu_back_rails
     del bpy.types.Scene.mu_front_rails
@@ -176,8 +198,6 @@ def unregister():
     del bpy.types.Scene.mu_units
     del bpy.types.Scene.mu_material_thickness
     unregister_cutter_properties()
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":

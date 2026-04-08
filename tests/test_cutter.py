@@ -20,9 +20,11 @@ assert _select_spec.loader is not None
 _select_spec.loader.exec_module(_select_module)
 
 parse_lengths_csv = _cutter_module.parse_lengths_csv
+parse_costs_csv = _cutter_module.parse_costs_csv
 board_used_length = _cutter_module.board_used_length
 calculate_cut_plan = _cutter_module.calculate_cut_plan
 cut_operations_for_plan = _cutter_module.cut_operations_for_plan
+material_cost_for_plan = _cutter_module.material_cost_for_plan
 matches_prefix = _select_module.matches_prefix
 matches_cutter_piece = _select_module.matches_cutter_piece
 matches_instance_root = _select_module.matches_instance_root
@@ -34,10 +36,33 @@ def test_parse_lengths_csv():
     assert parse_lengths_csv("490, 392, 169") == [490, 392, 169]
 
 
+def test_parse_costs_csv():
+    assert parse_costs_csv("10, 12.5;20") == [10.0, 12.5, 20.0]
+    assert parse_costs_csv(" ") == []
+
+
 def test_board_used_length():
     assert board_used_length([], 4) == 0
     assert board_used_length([490], 4) == 490
     assert board_used_length([490, 392, 169], 4) == 1059
+
+
+def test_material_cost_for_plan():
+    boards = [(2000, [490, 490]), (1200, [392])]
+    costs = {2000: 25.0, 1200: 15.0}
+    assert material_cost_for_plan(boards, costs) == 40.0
+
+
+def test_calculate_cut_plan_prefers_lower_cost():
+    pieces = [400, 400]
+    stock = [800, 1000]
+    costs = [20.0, 1.0]
+
+    plan = calculate_cut_plan(pieces, stock, 0, 1, costs, 0.0)
+    assert plan is not None
+    boards, total_stock, waste = plan
+    assert total_stock == 1000
+    assert waste == 200
 
 
 def test_calculate_cut_plan_minimum_stock():

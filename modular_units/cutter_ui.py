@@ -9,10 +9,20 @@ from .cutter import (
     board_used_length,
     calculate_cut_plan,
     cut_operations_for_plan,
+    material_cost_for_plan,
+    parse_costs_csv,
     parse_lengths_csv,
     stack_groups_for_plan,
 )
 from .cutter_select import matches_cutter_piece, matches_instance_root
+
+
+def _addon_prefs(context):
+    module_name = "modular_units"
+    addon = context.preferences.addons.get(module_name) if context else None
+    if addon is None:
+        return None
+    return getattr(addon, "preferences", None)
 
 
 def _object_length_mm(obj, depsgraph) -> int:
@@ -71,9 +81,25 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        stock_lengths = parse_lengths_csv(context.scene.mu_cutter_stock_lengths)
+        prefs = _addon_prefs(context)
+        stock_lengths_value = context.scene.mu_cutter_stock_lengths
+        stock_costs_value = context.scene.mu_cutter_stock_costs
+        if not stock_lengths_value:
+            if prefs is not None and getattr(prefs, "cutter_default_stock_lengths", None):
+                stock_lengths_value = prefs.cutter_default_stock_lengths
+            else:
+                stock_lengths_value = ui_text.DEFAULT_STOCK_LENGTHS
+        if not stock_costs_value:
+            if prefs is not None and getattr(prefs, "cutter_default_stock_costs", None):
+                stock_costs_value = prefs.cutter_default_stock_costs
+            else:
+                stock_costs_value = ui_text.DEFAULT_STOCK_COSTS
+
+        stock_lengths = parse_lengths_csv(stock_lengths_value)
+        stock_costs = parse_costs_csv(stock_costs_value)
         kerf_mm = int(round(context.scene.mu_cutter_kerf))
         max_stack = max(1, int(round(context.scene.mu_cutter_max_stack)))
+        cut_cost = float(context.scene.mu_cutter_cut_cost)
         pieces = _selected_lengths_mm(context)
 
         if not pieces:
@@ -86,16 +112,45 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
             self.report({"WARNING"}, "No stock lengths provided")
             return {"CANCELLED"}
 
-        plan = calculate_cut_plan(pieces, stock_lengths, kerf_mm, max_stack)
+        if not stock_costs:
+            context.scene.mu_cutter_results = "No stock costs provided."
+            self.report({"WARNING"}, "No stock costs provided")
+            return {"CANCELLED"}
+
+        if len(stock_costs) != len(stock_lengths):
+            context.scene.mu_cutter_results = (
+                "Stock costs must match stock lengths count."
+            )
+            self.report({"WARNING"}, "Stock costs must match stock lengths count")
+            return {"CANCELLED"}
+
+        plan = calculate_cut_plan(
+            pieces,
+            stock_lengths,
+            kerf_mm,
+            max_stack,
+            stock_costs,
+            cut_cost,
+            return_meta=True,
+        )
         if plan is None:
             context.scene.mu_cutter_results = "No valid cut plan found."
             self.report({"WARNING"}, "No valid cut plan found")
             return {"CANCELLED"}
 
-        boards, total_stock, waste = plan
+        if len(plan) == 4:
+            boards, total_stock, waste, meta = plan
+        else:
+            boards, total_stock, waste = plan
+            meta = {}
         cut_ops = cut_operations_for_plan(boards, max_stack)
         boards_sorted = sorted(boards, key=lambda entry: (-entry[0], -len(entry[1])))
         stack_groups = stack_groups_for_plan(boards) if max_stack > 1 else []
+        costs_by_length = {
+            length: cost for length, cost in zip(stock_lengths, stock_costs)
+        }
+        material_cost = material_cost_for_plan(boards, costs_by_length)
+        total_cost = material_cost + (cut_ops * cut_cost)
 
         lines = [
             ui_text.PANEL_CUTTER_RESULTS_LABEL,
@@ -104,9 +159,16 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
             f"Waste: {waste} mm",
             f"Kerf: {kerf_mm} mm",
             f"Cuts: {cut_ops} (stack {max_stack})",
+            f"Material cost: {material_cost:.2f}",
+            f"Cut cost: {cut_ops * cut_cost:.2f}",
+            f"Total cost: {total_cost:.2f}",
             ui_text.INFO_CUTTER_LENGTH_SOURCE,
             "",
         ]
+
+        if meta.get("timed_out"):
+            lines.append("Note: solver timed out; plan may be suboptimal")
+            lines.append("")
 
         if max_stack > 1:
             if stack_groups:
@@ -148,6 +210,21 @@ class MU_OT_cutter_copy_results(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MU_OT_cutter_apply_defaults(bpy.types.Operator):
+    bl_idname = "mu.cutter_apply_defaults"
+    bl_label = "Apply Defaults"
+
+    def execute(self, context):
+        prefs = _addon_prefs(context)
+        if prefs is None:
+            self.report({"WARNING"}, "Addon preferences not found")
+            return {"CANCELLED"}
+        context.scene.mu_cutter_stock_lengths = prefs.cutter_default_stock_lengths
+        context.scene.mu_cutter_stock_costs = prefs.cutter_default_stock_costs
+        self.report({"INFO"}, "Cutter defaults applied")
+        return {"FINISHED"}
+
+
 class MU_PT_cutter_panel(bpy.types.Panel):
     bl_label = ui_text.PANEL_CUTTER_LABEL
     bl_idname = "MU_PT_cutter_panel"
@@ -157,9 +234,22 @@ class MU_PT_cutter_panel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        prefs = _addon_prefs(context)
+        if not hasattr(context.scene, "mu_cutter_stock_lengths"):
+            layout.label(text="Cutter properties not registered")
+            layout.label(text="Disable and re-enable the add-on")
+            return
+        if prefs is not None and (
+            not context.scene.mu_cutter_stock_lengths
+            or not context.scene.mu_cutter_stock_costs
+        ):
+            layout.label(text="Defaults available from add-on prefs")
+            layout.operator(MU_OT_cutter_apply_defaults.bl_idname)
         layout.prop(context.scene, "mu_cutter_stock_lengths")
+        layout.prop(context.scene, "mu_cutter_stock_costs")
         layout.prop(context.scene, "mu_cutter_kerf")
         layout.prop(context.scene, "mu_cutter_max_stack")
+        layout.prop(context.scene, "mu_cutter_cut_cost")
         layout.operator(MU_OT_cutter_calculate.bl_idname)
         layout.operator(MU_OT_cutter_copy_results.bl_idname)
 
@@ -172,6 +262,7 @@ class MU_PT_cutter_panel(bpy.types.Panel):
 CUTTER_CLASSES = (
     MU_OT_cutter_calculate,
     MU_OT_cutter_copy_results,
+    MU_OT_cutter_apply_defaults,
     MU_PT_cutter_panel,
 )
 
@@ -179,7 +270,11 @@ CUTTER_CLASSES = (
 def register_cutter_properties():
     bpy.types.Scene.mu_cutter_stock_lengths = bpy.props.StringProperty(
         name=ui_text.PROP_CUTTER_STOCK_LENGTHS,
-        default=ui_text.DEFAULT_STOCK_LENGTHS,
+        default="",
+    )
+    bpy.types.Scene.mu_cutter_stock_costs = bpy.props.StringProperty(
+        name=ui_text.PROP_CUTTER_STOCK_COSTS,
+        default="",
     )
     bpy.types.Scene.mu_cutter_kerf = bpy.props.FloatProperty(
         name=ui_text.PROP_CUTTER_KERF,
@@ -191,6 +286,11 @@ def register_cutter_properties():
         default=1,
         min=1,
     )
+    bpy.types.Scene.mu_cutter_cut_cost = bpy.props.FloatProperty(
+        name=ui_text.PROP_CUTTER_CUT_COST,
+        default=25.0,
+        min=0.0,
+    )
     bpy.types.Scene.mu_cutter_results = bpy.props.StringProperty(
         name=ui_text.PANEL_CUTTER_RESULTS_LABEL,
         default="",
@@ -201,4 +301,6 @@ def unregister_cutter_properties():
     del bpy.types.Scene.mu_cutter_results
     del bpy.types.Scene.mu_cutter_kerf
     del bpy.types.Scene.mu_cutter_max_stack
+    del bpy.types.Scene.mu_cutter_cut_cost
+    del bpy.types.Scene.mu_cutter_stock_costs
     del bpy.types.Scene.mu_cutter_stock_lengths
