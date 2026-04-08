@@ -144,7 +144,9 @@ class MU_MaterialItem(bpy.types.PropertyGroup):
 class MU_UL_materials(bpy.types.UIList):
     def draw_item(self, context, layout, _data, item, _icon, _active_data, _active_propname, _index):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
-            layout.label(text=f"{item.length_mm} mm | {item.cost:.2f} | {item.thickness_mm} mm")
+            split = layout.split(factor=0.75)
+            split.label(text=f"{item.thickness_mm} x {item.length_mm} mm")
+            split.label(text=f"{item.cost:.2f}")
         elif self.layout_type == "GRID":
             layout.alignment = "CENTER"
             layout.label(text=str(item.length_mm))
@@ -187,17 +189,32 @@ class MU_PT_materials_panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         prefs = context.preferences.addons.get("modular_units").preferences
+        header = layout.row()
+        header_split = header.split(factor=0.75)
+        header_split.label(text="Thickness x Length")
+        header_split.label(text="Cost")
         row = layout.row()
         row.template_list("MU_UL_materials", "", prefs, "materials", prefs, "materials_index")
         col = row.column(align=True)
         col.operator(MU_OT_material_add.bl_idname, text="", icon="ADD")
         col.operator(MU_OT_material_remove.bl_idname, text="", icon="REMOVE")
 
-        if prefs.materials and 0 <= prefs.materials_index < len(prefs.materials):
-            item = prefs.materials[prefs.materials_index]
-            layout.prop(item, "length_mm")
-            layout.prop(item, "cost")
-            layout.prop(item, "thickness_mm")
+        toggle = layout.row()
+        toggle.prop(
+            prefs,
+            "show_material_editor",
+            text="Edit",
+            toggle=True,
+            icon="GREASEPENCIL",
+        )
+
+        if prefs.show_material_editor:
+            if prefs.materials and 0 <= prefs.materials_index < len(prefs.materials):
+                item = prefs.materials[prefs.materials_index]
+                layout.prop(item, "length_mm")
+                layout.prop(item, "cost")
+                layout.prop(item, "thickness_mm")
+
 
 
 class MU_AddonPreferences(bpy.types.AddonPreferences):
@@ -205,6 +222,7 @@ class MU_AddonPreferences(bpy.types.AddonPreferences):
 
     materials: bpy.props.CollectionProperty(type=MU_MaterialItem)
     materials_index: bpy.props.IntProperty(default=0, min=0)
+    show_material_editor: bpy.props.BoolProperty(default=False)
 
     def draw(self, context):
         layout = self.layout
