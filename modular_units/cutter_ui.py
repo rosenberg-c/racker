@@ -25,6 +25,18 @@ def _addon_prefs(context):
     return getattr(addon, "preferences", None)
 
 
+def _section_title(title: str, width: int = 40, left_pad: int = 2) -> str:
+    label = f" {title} "
+    if left_pad < 0:
+        left_pad = 0
+    if left_pad >= width:
+        return ("=" * width)
+    remaining = width - left_pad
+    if len(label) >= remaining:
+        return ("=" * left_pad) + label[:remaining]
+    return ("=" * left_pad) + label + ("=" * (remaining - len(label)))
+
+
 def _object_length_mm(obj, depsgraph) -> int:
     eval_obj = obj.evaluated_get(depsgraph)
     if not matches_cutter_piece(eval_obj):
@@ -153,37 +165,40 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
         total_cost = material_cost + (cut_ops * cut_cost)
 
         lines = [
-            ui_text.PANEL_CUTTER_RESULTS_LABEL,
+            _section_title("Cut Plan"),
             f"Pieces: {len(pieces)}",
             f"Total stock: {total_stock} mm",
             f"Waste: {waste} mm",
             f"Kerf: {kerf_mm} mm",
             f"Cuts: {cut_ops} (stack {max_stack})",
+            ui_text.INFO_CUTTER_LENGTH_SOURCE,
+            "",
+            _section_title("Costs"),
             f"Material cost: {material_cost:.2f}",
             f"Cut cost: {cut_ops * cut_cost:.2f}",
             f"Total cost: {total_cost:.2f}",
-            ui_text.INFO_CUTTER_LENGTH_SOURCE,
             "",
         ]
 
         if meta.get("timed_out"):
-            lines.append("Note: solver timed out; plan may be suboptimal")
+            lines.append(_section_title("Notes"))
+            lines.append("Solver timed out; plan may be suboptimal")
             lines.append("")
 
         if max_stack > 1:
+            lines.append(_section_title("Stack Groups"))
             if stack_groups:
-                lines.append("Stack groups:")
                 for piece_list, count in stack_groups:
                     pieces_text = ", ".join(str(piece) for piece in piece_list)
                     batches = math.ceil(count / max_stack)
                     lines.append(
                         f"{count} boards: {pieces_text} (batch {max_stack} x {batches})"
                     )
-                lines.append("")
             else:
-                lines.append("Stack groups: none")
-                lines.append("")
+                lines.append("None")
+            lines.append("")
 
+        lines.append(_section_title("Boards"))
         for board_length, board_pieces in boards_sorted:
             used = board_used_length(board_pieces, kerf_mm)
             offcut = board_length - used
