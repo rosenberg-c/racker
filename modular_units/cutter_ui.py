@@ -4,7 +4,12 @@ from typing import List
 
 import bpy
 from . import ui_text
-from .cutter import board_used_length, calculate_cut_plan, parse_lengths_csv
+from .cutter import (
+    board_used_length,
+    calculate_cut_plan,
+    cut_operations_for_plan,
+    parse_lengths_csv,
+)
 from .cutter_select import matches_cutter_piece, matches_instance_root
 
 
@@ -66,6 +71,7 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
     def execute(self, context):
         stock_lengths = parse_lengths_csv(context.scene.mu_cutter_stock_lengths)
         kerf_mm = int(round(context.scene.mu_cutter_kerf))
+        max_stack = max(1, int(round(context.scene.mu_cutter_max_stack)))
         pieces = _selected_lengths_mm(context)
 
         if not pieces:
@@ -78,13 +84,14 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
             self.report({"WARNING"}, "No stock lengths provided")
             return {"CANCELLED"}
 
-        plan = calculate_cut_plan(pieces, stock_lengths, kerf_mm)
+        plan = calculate_cut_plan(pieces, stock_lengths, kerf_mm, max_stack)
         if plan is None:
             context.scene.mu_cutter_results = "No valid cut plan found."
             self.report({"WARNING"}, "No valid cut plan found")
             return {"CANCELLED"}
 
         boards, total_stock, waste = plan
+        cut_ops = cut_operations_for_plan(boards, max_stack)
         boards_sorted = sorted(boards, key=lambda entry: (-entry[0], -len(entry[1])))
 
         lines = [
@@ -93,6 +100,7 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
             f"Total stock: {total_stock} mm",
             f"Waste: {waste} mm",
             f"Kerf: {kerf_mm} mm",
+            f"Cuts: {cut_ops} (stack {max_stack})",
             ui_text.INFO_CUTTER_LENGTH_SOURCE,
             "",
         ]
@@ -109,6 +117,20 @@ class MU_OT_cutter_calculate(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MU_OT_cutter_copy_results(bpy.types.Operator):
+    bl_idname = "mu.cutter_copy_results"
+    bl_label = ui_text.BUTTON_CUTTER_COPY
+
+    def execute(self, context):
+        results = context.scene.mu_cutter_results
+        if not results:
+            self.report({"WARNING"}, "No results to copy")
+            return {"CANCELLED"}
+        context.window_manager.clipboard = results
+        self.report({"INFO"}, "Cutter results copied to clipboard")
+        return {"FINISHED"}
+
+
 class MU_PT_cutter_panel(bpy.types.Panel):
     bl_label = ui_text.PANEL_CUTTER_LABEL
     bl_idname = "MU_PT_cutter_panel"
@@ -120,7 +142,9 @@ class MU_PT_cutter_panel(bpy.types.Panel):
         layout = self.layout
         layout.prop(context.scene, "mu_cutter_stock_lengths")
         layout.prop(context.scene, "mu_cutter_kerf")
+        layout.prop(context.scene, "mu_cutter_max_stack")
         layout.operator(MU_OT_cutter_calculate.bl_idname)
+        layout.operator(MU_OT_cutter_copy_results.bl_idname)
 
         if context.scene.mu_cutter_results:
             box = layout.box()
@@ -130,6 +154,7 @@ class MU_PT_cutter_panel(bpy.types.Panel):
 
 CUTTER_CLASSES = (
     MU_OT_cutter_calculate,
+    MU_OT_cutter_copy_results,
     MU_PT_cutter_panel,
 )
 
@@ -144,6 +169,11 @@ def register_cutter_properties():
         default=4.0,
         min=0.0,
     )
+    bpy.types.Scene.mu_cutter_max_stack = bpy.props.IntProperty(
+        name=ui_text.PROP_CUTTER_MAX_STACK,
+        default=1,
+        min=1,
+    )
     bpy.types.Scene.mu_cutter_results = bpy.props.StringProperty(
         name=ui_text.PANEL_CUTTER_RESULTS_LABEL,
         default="",
@@ -153,4 +183,5 @@ def register_cutter_properties():
 def unregister_cutter_properties():
     del bpy.types.Scene.mu_cutter_results
     del bpy.types.Scene.mu_cutter_kerf
+    del bpy.types.Scene.mu_cutter_max_stack
     del bpy.types.Scene.mu_cutter_stock_lengths

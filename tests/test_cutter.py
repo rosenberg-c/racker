@@ -22,6 +22,7 @@ _select_spec.loader.exec_module(_select_module)
 parse_lengths_csv = _cutter_module.parse_lengths_csv
 board_used_length = _cutter_module.board_used_length
 calculate_cut_plan = _cutter_module.calculate_cut_plan
+cut_operations_for_plan = _cutter_module.cut_operations_for_plan
 matches_prefix = _select_module.matches_prefix
 matches_cutter_piece = _select_module.matches_cutter_piece
 matches_instance_root = _select_module.matches_instance_root
@@ -104,6 +105,18 @@ def test_calculate_cut_plan_mixed_lengths():
     _boards, total_stock, waste = plan
     assert total_stock == 900
     assert waste == 150
+
+
+def test_cut_operations_for_plan_with_stack():
+    boards = [(1000, [400, 400]), (1000, [400])]
+    assert cut_operations_for_plan(boards, 1) == 3
+    assert cut_operations_for_plan(boards, 2) == 3
+
+
+def test_cut_operations_for_plan_groups_identical_boards():
+    boards = [(1000, [400, 400]), (1000, [400, 400])]
+    assert cut_operations_for_plan(boards, 1) == 4
+    assert cut_operations_for_plan(boards, 2) == 2
 
 
 class _Dummy:

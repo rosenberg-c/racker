@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Iterable, List, Optional, Tuple, Union
+import math
 
 
 def _coerce_positive_ints(values: Iterable[Union[float, int, str]]) -> List[int]:
@@ -31,14 +32,28 @@ def board_used_length(pieces: List[int], kerf: int) -> int:
     return sum(pieces) + kerf_total
 
 
+def cut_operations_for_plan(
+    boards: List[Tuple[int, List[int]]],
+    max_stack: int,
+) -> int:
+    stack = max(1, int(max_stack))
+    groups = {}
+    for _board_length, pieces in boards:
+        key = tuple(sorted(pieces))
+        groups[key] = groups.get(key, 0) + 1
+    return sum(math.ceil(count / stack) * len(key) for key, count in groups.items())
+
+
 def calculate_cut_plan(
     pieces_mm: List[int],
     stock_lengths_mm: List[int],
     kerf_mm: int,
+    max_stack: int = 1,
 ) -> Optional[Tuple[List[Tuple[int, List[int]]], int, int]]:
     pieces = sorted(_coerce_positive_ints(pieces_mm), reverse=True)
     stock_lengths = sorted(set(_coerce_positive_ints(stock_lengths_mm)))
     kerf = max(0, int(round(kerf_mm)))
+    stack = max(1, int(max_stack))
 
     if not pieces or not stock_lengths:
         return None
@@ -48,25 +63,33 @@ def calculate_cut_plan(
     best_plan = None
     best_total = None
     best_waste = None
+    best_cuts = None
     best_boards = None
     memo = {}
 
     def board_state(boards):
         return tuple(sorted((board["length"], board["used"]) for board in boards))
 
-    def is_better(total_length, waste, board_count):
+    def is_better(total_length, waste, cut_ops, board_count):
         if best_total is None:
             return True
         if total_length < best_total:
             return True
         if total_length == best_total and waste < best_waste:
             return True
-        if total_length == best_total and waste == best_waste and board_count < best_boards:
+        if total_length == best_total and waste == best_waste and cut_ops < best_cuts:
+            return True
+        if (
+            total_length == best_total
+            and waste == best_waste
+            and cut_ops == best_cuts
+            and board_count < best_boards
+        ):
             return True
         return False
 
     def dfs(index, boards, total_length):
-        nonlocal best_plan, best_total, best_waste, best_boards
+        nonlocal best_plan, best_total, best_waste, best_cuts, best_boards
 
         if best_total is not None and total_length > best_total:
             return
@@ -80,13 +103,14 @@ def calculate_cut_plan(
         if index >= len(pieces):
             waste = sum(board["length"] - board["used"] for board in boards)
             board_count = len(boards)
-            if is_better(total_length, waste, board_count):
+            plan = [(board["length"], list(board["pieces"])) for board in boards]
+            cut_ops = cut_operations_for_plan(plan, stack)
+            if is_better(total_length, waste, cut_ops, board_count):
                 best_total = total_length
                 best_waste = waste
+                best_cuts = cut_ops
                 best_boards = board_count
-                best_plan = [
-                    (board["length"], list(board["pieces"])) for board in boards
-                ]
+                best_plan = plan
             return
 
         length = pieces[index]
