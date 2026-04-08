@@ -14,12 +14,8 @@ ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
 PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
 
 import bpy
-from .cutter_ui import (
-    CUTTER_CLASSES,
-    apply_cutter_defaults,
-    register_cutter_properties,
-    unregister_cutter_properties,
-)
+from .cutter import parse_stock_materials_csv
+from .cutter_ui import CUTTER_CLASSES, register_cutter_properties, unregister_cutter_properties
 from .rack_builder import build_rack, mu_material_items
 
 
@@ -63,6 +59,10 @@ class MU_OT_add_rack(bpy.types.Operator):
     )
 
     def execute(self, context):
+        try:
+            thickness = float(context.scene.mu_material_thickness)
+        except (TypeError, ValueError):
+            thickness = 18.0
         return build_rack(
             context,
             self.units,
@@ -71,7 +71,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             self.front_rails,
             self.back_rails,
             context.scene.mu_material,
-            self.material_thickness,
+            thickness,
         )
 
 
@@ -116,26 +116,34 @@ class MU_PT_panel(bpy.types.Panel):
         op.rail_offset_back = context.scene.mu_rail_offset_back
         op.front_rails = context.scene.mu_front_rails
         op.back_rails = context.scene.mu_back_rails
-        op.material_thickness = context.scene.mu_material_thickness
+        op.material_thickness = float(context.scene.mu_material_thickness)
+
+
+def _material_thickness_items(self, context):
+    prefs_entry = context.preferences.addons.get("modular_units") if context else None
+    prefs = prefs_entry.preferences if prefs_entry else None
+    materials_value = (
+        prefs.cutter_materials_list if prefs is not None else ui_text.DEFAULT_STOCK_MATERIALS
+    )
+    materials = parse_stock_materials_csv(materials_value)
+    thicknesses = sorted({material.thickness_mm for material in materials})
+    if not thicknesses:
+        thicknesses = [18.0]
+    return [(str(value), f"{value} mm", "") for value in thicknesses]
 
 
 class MU_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = "modular_units"
 
-    cutter_default_stock_lengths: bpy.props.StringProperty(
-        name=ui_text.PROP_CUTTER_STOCK_LENGTHS,
-        default=ui_text.DEFAULT_STOCK_LENGTHS,
-    )
-    cutter_default_stock_costs: bpy.props.StringProperty(
-        name=ui_text.PROP_CUTTER_STOCK_COSTS,
-        default=ui_text.DEFAULT_STOCK_COSTS,
+    cutter_materials_list: bpy.props.StringProperty(
+        name=ui_text.PROP_CUTTER_MATERIALS,
+        default=ui_text.DEFAULT_STOCK_MATERIALS,
     )
 
     def draw(self, context):
         layout = self.layout
         layout.label(text=ui_text.PANEL_CUTTER_LABEL)
-        layout.prop(self, "cutter_default_stock_lengths")
-        layout.prop(self, "cutter_default_stock_costs")
+        layout.prop(self, "cutter_materials_list")
 
 
 def menu_func(self, context):
@@ -151,11 +159,6 @@ classes = (
 )
 
 
-def _apply_cutter_defaults_handler(_dummy):
-    prefs_entry = bpy.context.preferences.addons.get("modular_units")
-    prefs = prefs_entry.preferences if prefs_entry else None
-    for scene in bpy.data.scenes:
-        apply_cutter_defaults(scene, prefs)
 
 
 def register():
@@ -190,22 +193,17 @@ def register():
         name=ui_text.PROP_BACK_RAILS,
         default=True,
     )
-    bpy.types.Scene.mu_material_thickness = bpy.props.FloatProperty(
+    bpy.types.Scene.mu_material_thickness = bpy.props.EnumProperty(
         name=ui_text.PROP_MATERIAL_THICKNESS,
-        default=18.0,
-        min=1.0,
+        items=_material_thickness_items,
+        default=0,
     )
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
-    _apply_cutter_defaults_handler(None)
-    if _apply_cutter_defaults_handler not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(_apply_cutter_defaults_handler)
 
 
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-    if _apply_cutter_defaults_handler in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(_apply_cutter_defaults_handler)
     bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
     del bpy.types.Scene.mu_back_rails
     del bpy.types.Scene.mu_front_rails

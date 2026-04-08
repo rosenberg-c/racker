@@ -48,35 +48,78 @@ def parse_costs_csv(value: str) -> List[float]:
 
 
 class StockMaterial:
-    __slots__ = ("length_mm", "cost")
+    __slots__ = ("length_mm", "cost", "thickness_mm")
 
-    def __init__(self, length_mm: int, cost: float) -> None:
+    def __init__(self, length_mm: int, cost: float, thickness_mm: float) -> None:
         self.length_mm = length_mm
         self.cost = cost
+        self.thickness_mm = thickness_mm
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, StockMaterial):
             return False
-        return self.length_mm == other.length_mm and self.cost == other.cost
+        return (
+            self.length_mm == other.length_mm
+            and self.cost == other.cost
+            and self.thickness_mm == other.thickness_mm
+        )
 
     def __repr__(self) -> str:
-        return f"StockMaterial(length_mm={self.length_mm}, cost={self.cost})"
+        return (
+            "StockMaterial(length_mm="
+            f"{self.length_mm}, cost={self.cost}, thickness_mm={self.thickness_mm})"
+        )
 
 
 def build_stock_materials(
     lengths_mm: List[int],
     costs: List[float],
+    thicknesses_mm: Optional[List[float]] = None,
 ) -> Optional[List[StockMaterial]]:
     if not lengths_mm or not costs:
         return None
     if len(lengths_mm) != len(costs):
         return None
+    if thicknesses_mm is not None and len(thicknesses_mm) != len(lengths_mm):
+        return None
     materials = []
-    for length, cost in zip(lengths_mm, costs):
-        if length <= 0 or cost <= 0:
+    for index, (length, cost) in enumerate(zip(lengths_mm, costs)):
+        thickness = thicknesses_mm[index] if thicknesses_mm is not None else 0.0
+        if length <= 0 or cost <= 0 or thickness < 0:
             continue
-        materials.append(StockMaterial(length_mm=length, cost=cost))
+        materials.append(
+            StockMaterial(length_mm=length, cost=cost, thickness_mm=thickness)
+        )
     return materials if materials else None
+
+
+def parse_stock_materials_csv(value: str) -> List[StockMaterial]:
+    if not value:
+        return []
+    tokens = value.replace(";", ",").split(",")
+    materials = []
+    for token in tokens:
+        entry = token.strip()
+        if not entry:
+            continue
+        parts = [part.strip() for part in entry.split(":")]
+        if len(parts) != 3:
+            continue
+        try:
+            length = int(round(float(parts[0])))
+            cost = float(parts[1])
+            thickness = float(parts[2])
+        except (TypeError, ValueError):
+            continue
+        if length > 0 and cost > 0 and thickness > 0:
+            materials.append(
+                StockMaterial(
+                    length_mm=length,
+                    cost=cost,
+                    thickness_mm=thickness,
+                )
+            )
+    return materials
 
 
 def board_used_length(pieces: List[int], kerf: int) -> int:

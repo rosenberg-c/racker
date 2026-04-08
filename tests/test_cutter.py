@@ -21,6 +21,7 @@ _select_spec.loader.exec_module(_select_module)
 
 parse_lengths_csv = _cutter_module.parse_lengths_csv
 parse_costs_csv = _cutter_module.parse_costs_csv
+parse_stock_materials_csv = _cutter_module.parse_stock_materials_csv
 build_stock_materials = _cutter_module.build_stock_materials
 StockMaterial = _cutter_module.StockMaterial
 board_used_length = _cutter_module.board_used_length
@@ -43,11 +44,19 @@ def test_parse_costs_csv():
     assert parse_costs_csv(" ") == []
 
 
+def test_parse_stock_materials_csv():
+    materials = parse_stock_materials_csv("800:199:18, 1200:169:18")
+    assert materials == [
+        StockMaterial(length_mm=800, cost=199.0, thickness_mm=18.0),
+        StockMaterial(length_mm=1200, cost=169.0, thickness_mm=18.0),
+    ]
+
+
 def test_build_stock_materials():
     materials = build_stock_materials([800, 1200], [10.0, 12.5])
     assert materials == [
-        StockMaterial(length_mm=800, cost=10.0),
-        StockMaterial(length_mm=1200, cost=12.5),
+        StockMaterial(length_mm=800, cost=10.0, thickness_mm=0.0),
+        StockMaterial(length_mm=1200, cost=12.5, thickness_mm=0.0),
     ]
 
 
