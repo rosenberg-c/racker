@@ -26,7 +26,7 @@ def _addon_prefs(context):
 
 
 
-def _section_title(title: str, width: int = 40, left_pad: int = 2) -> str:
+def _section_title(title: str, width: int = 30, left_pad: int = 2) -> str:
     label = f" {title} "
     if left_pad < 0:
         left_pad = 0
