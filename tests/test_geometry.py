@@ -31,10 +31,10 @@ class _Config:
 
 
 def test_collection_name():
-    assert collection_name(10, False, False) == "MU_10"
-    assert collection_name(10, True, False) == "MU_10.front"
-    assert collection_name(10, False, True) == "MU_10.back"
-    assert collection_name(10, True, True) == "MU_10.front-back"
+    assert collection_name(10, 18.0, 400.0, False, False) == "MU_10U_18x400"
+    assert collection_name(10, 18.0, 400.0, True, False) == "MU_10U_18x400.front"
+    assert collection_name(10, 18.0, 400.0, False, True) == "MU_10U_18x400.back"
+    assert collection_name(10, 18.0, 400.0, True, True) == "MU_10U_18x400.front-back"
 
 
 def test_unique_collection_name():

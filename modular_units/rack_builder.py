@@ -152,7 +152,9 @@ def build_rack(
         if material is None:
             material = ensure_material(DEFAULT_MATERIAL_NAME)
 
-    collection = ensure_collection(collection_name(units, front_rails, back_rails))
+    collection = ensure_collection(
+        collection_name(units, material_thickness, depth_mm, front_rails, back_rails)
+    )
 
     add_box(
         "MU_Top",

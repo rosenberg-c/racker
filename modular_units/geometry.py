@@ -1,11 +1,23 @@
-def collection_name(units, front_rails, back_rails):
+def collection_name(units, thickness_mm, depth_mm, front_rails, back_rails):
+    base = (
+        f"MU_{_format_mm(units)}U_"
+        f"{_format_mm(thickness_mm)}x{_format_mm(depth_mm)}"
+    )
     if front_rails and back_rails:
-        return f"MU_{units}.front-back"
+        return f"{base}.front-back"
     if front_rails:
-        return f"MU_{units}.front"
+        return f"{base}.front"
     if back_rails:
-        return f"MU_{units}.back"
-    return f"MU_{units}"
+        return f"{base}.back"
+    return base
+
+
+def _format_mm(value):
+    if value is None:
+        return "0"
+    if abs(value - round(value)) < 1e-6:
+        return str(int(round(value)))
+    return f"{value:.2f}".rstrip("0").rstrip(".")
 
 
 def unique_collection_name(base_name, existing_names):
