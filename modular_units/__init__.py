@@ -16,6 +16,7 @@ PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
 import bpy
 from .cutter import parse_stock_materials_csv
 from .cutter_ui import CUTTER_CLASSES, register_cutter_properties, unregister_cutter_properties
+from .faceplate_builder import build_faceplate
 from .rack_builder import build_rack, mu_material_items
 
 
@@ -87,6 +88,7 @@ class MU_MT_menu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator(MU_OT_add_rack.bl_idname, text=MU_OT_add_rack.bl_label)
+        layout.operator(MU_OT_add_faceplate.bl_idname, text=MU_OT_add_faceplate.bl_label)
 
 
 class MU_PT_panel(bpy.types.Panel):
@@ -123,6 +125,51 @@ class MU_PT_panel(bpy.types.Panel):
         op.front_rails = context.scene.mu_front_rails
         op.back_rails = context.scene.mu_back_rails
         op.material_thickness = float(context.scene.mu_material_thickness)
+
+
+class MU_OT_add_faceplate(bpy.types.Operator):
+    bl_idname = "mesh.mu_add_faceplate"
+    bl_label = "Add Faceplate"
+    bl_options = {"REGISTER", "UNDO"}
+
+    units: bpy.props.IntProperty(
+        name=ui_text.PROP_UNITS,
+        default=1,
+        min=1,
+    )
+    thickness: bpy.props.FloatProperty(
+        name=ui_text.PROP_FACEPLATE_THICKNESS,
+        default=2.0,
+        min=0.1,
+    )
+
+    def execute(self, context):
+        material = bpy.data.materials.get(context.scene.mu_material)
+        build_faceplate(
+            context,
+            self.units,
+            width_mm=483.0,
+            thickness_mm=self.thickness,
+            material=material,
+        )
+        return {"FINISHED"}
+
+
+class MU_PT_faceplate_panel(bpy.types.Panel):
+    bl_label = "Faceplate"
+    bl_idname = "MU_PT_faceplate_panel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = ui_text.PANEL_CATEGORY
+
+    def draw(self, context):
+        layout = self.layout
+        box = layout.box()
+        box.prop(context.scene, "mu_faceplate_units")
+        box.prop(context.scene, "mu_faceplate_thickness")
+        op = box.operator(MU_OT_add_faceplate.bl_idname, text="Create Faceplate")
+        op.units = context.scene.mu_faceplate_units
+        op.thickness = context.scene.mu_faceplate_thickness
 
 
 def _material_thickness_items(self, context):
@@ -277,8 +324,10 @@ classes = (
     MU_PT_materials_panel,
     MU_AddonPreferences,
     MU_OT_add_rack,
+    MU_OT_add_faceplate,
     MU_MT_menu,
     MU_PT_panel,
+    MU_PT_faceplate_panel,
     *CUTTER_CLASSES,
 )
 
@@ -341,6 +390,16 @@ def register():
         items=_material_depth_items,
         default=0,
     )
+    bpy.types.Scene.mu_faceplate_units = bpy.props.IntProperty(
+        name=ui_text.PROP_UNITS,
+        default=1,
+        min=1,
+    )
+    bpy.types.Scene.mu_faceplate_thickness = bpy.props.FloatProperty(
+        name=ui_text.PROP_FACEPLATE_THICKNESS,
+        default=2.0,
+        min=0.1,
+    )
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
 
 
@@ -356,6 +415,8 @@ def unregister():
     del bpy.types.Scene.mu_units
     del bpy.types.Scene.mu_material_thickness
     del bpy.types.Scene.mu_material_depth
+    del bpy.types.Scene.mu_faceplate_units
+    del bpy.types.Scene.mu_faceplate_thickness
     unregister_cutter_properties()
 
 
