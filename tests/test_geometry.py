@@ -12,6 +12,7 @@ unique_collection_name = _module.unique_collection_name
 rail_face_y_mm = _module.rail_face_y_mm
 rail_face_y_from_config = _module.rail_face_y_from_config
 rail_hole_zs_mm = _module.rail_hole_zs_mm
+faceplate_hole_zs_mm = _module.faceplate_hole_zs_mm
 rail_hole_zs_from_config = _module.rail_hole_zs_from_config
 rail_x_faces_mm = _module.rail_x_faces_mm
 rail_x_faces_from_config = _module.rail_x_faces_from_config
@@ -122,3 +123,17 @@ def test_rail_hole_zs_mm_bounds():
     positions = rail_hole_zs_mm(1, 18.0, 44.45, hole_offsets)
     assert min(positions) >= 18.0
     assert max(positions) <= 18.0 + 44.45
+
+
+def test_faceplate_hole_zs_mm():
+    hole_offsets = (6.35, 22.225, 38.1)
+    positions = faceplate_hole_zs_mm(1, 44.45, hole_offsets)
+    assert positions == [44.45 - 6.35, 6.35]
+
+
+def test_faceplate_hole_zs_matches_rail_ends():
+    hole_offsets = (6.35, 22.225, 38.1)
+    rail_positions = rail_hole_zs_mm(1, 0.0, 44.45, hole_offsets)
+    faceplate_positions = sorted(faceplate_hole_zs_mm(1, 44.45, hole_offsets))
+    assert abs(faceplate_positions[0] - min(rail_positions)) < 1e-6
+    assert abs(faceplate_positions[1] - max(rail_positions)) < 1e-6

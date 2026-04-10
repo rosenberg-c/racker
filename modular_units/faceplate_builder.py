@@ -6,6 +6,7 @@ import mathutils
 
 from .builders import build_panel, _apply_boolean_difference
 from .config import RackConfig
+from .geometry import faceplate_hole_zs_mm, unique_collection_name
 
 
 def build_faceplate(
@@ -22,7 +23,7 @@ def build_faceplate(
     mm_to_m = 0.001
 
     if collection is None:
-        collection = context.scene.collection
+        collection = _ensure_collection(context, f"MU_Faceplate_{units}U")
 
     y_center = -(thickness_mm * 0.5) * mm_to_m
     obj = build_panel(
@@ -51,16 +52,9 @@ def build_faceplate(
         hole_depth * mm_to_m,
         collection,
     )
-    _apply_boolean_difference(context, obj, holes_obj)
-    bpy.data.objects.remove(holes_obj, do_unlink=True)
+    _add_boolean_difference_modifier(obj, holes_obj)
 
     return obj
-
-
-def faceplate_hole_zs_mm(units, unit_height, hole_offsets):
-    top_offset = hole_offsets[0]
-    total_height = units * unit_height
-    return [total_height - top_offset, top_offset]
 
 
 def _build_holes_object_y(
@@ -82,6 +76,21 @@ def _build_holes_object_y(
     bm.free()
 
     return obj
+
+
+def _add_boolean_difference_modifier(target_obj, cutter_obj):
+    modifier = target_obj.modifiers.new(name="MU_Faceplate_Holes", type="BOOLEAN")
+    modifier.operation = "DIFFERENCE"
+    modifier.object = cutter_obj
+    modifier.solver = "EXACT"
+
+
+def _ensure_collection(context, name):
+    existing = {collection.name for collection in bpy.data.collections}
+    resolved = unique_collection_name(name, existing)
+    collection = bpy.data.collections.new(resolved)
+    context.scene.collection.children.link(collection)
+    return collection
 
 
 def _add_cylinder(bm, radius, depth, location, rotation):

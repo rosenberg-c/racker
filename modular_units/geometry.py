@@ -69,6 +69,12 @@ def rail_hole_zs_mm(units, top_bottom_z, unit_height, hole_offsets):
     return positions
 
 
+def faceplate_hole_zs_mm(units, unit_height, hole_offsets):
+    top_offset = hole_offsets[0]
+    total_height = units * unit_height
+    return [total_height - top_offset, top_offset]
+
+
 def rail_hole_zs_from_config(units, config):
     return rail_hole_zs_mm(units, config.top_bottom_z, config.unit_height, config.hole_offsets)
 

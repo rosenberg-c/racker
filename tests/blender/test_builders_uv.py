@@ -36,6 +36,8 @@ _reload_modular_units()
 _rack_module = importlib.import_module("modular_units.rack_builder")
 build_rack = _rack_module.build_rack
 RackConfig = _rack_module.RackConfig
+_faceplate_module = importlib.import_module("modular_units.faceplate_builder")
+build_faceplate = _faceplate_module.build_faceplate
 _rails_module = importlib.import_module("modular_units.rails")
 rail_component_centers_mm = _rails_module.rail_component_centers_mm
 _geometry_module = importlib.import_module("modular_units.geometry")
@@ -482,6 +484,23 @@ def main():
                 )
             ),
         )
+
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
+
+    faceplate_units = 2
+    build_faceplate(bpy.context, faceplate_units)
+    faceplate_collection = bpy.data.collections.get(f"MU_Faceplate_{faceplate_units}U")
+    assert faceplate_collection is not None
+    faceplate = bpy.data.objects.get("MU_Faceplate")
+    holes = bpy.data.objects.get("MU_Faceplate_Holes")
+    assert faceplate is not None
+    assert holes is not None
+    assert faceplate.name in faceplate_collection.objects
+    assert holes.name in faceplate_collection.objects
+    modifiers = [modifier for modifier in faceplate.modifiers if modifier.type == "BOOLEAN"]
+    assert modifiers
+    assert modifiers[0].object == holes
 
 
 if __name__ == "__main__":
