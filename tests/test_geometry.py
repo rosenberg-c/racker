@@ -32,10 +32,24 @@ class _Config:
 
 
 def test_collection_name():
-    assert collection_name(10, 18.0, 400.0, False, False) == "MU_10U_18x400"
-    assert collection_name(10, 18.0, 400.0, True, False) == "MU_10U_18x400.front"
-    assert collection_name(10, 18.0, 400.0, False, True) == "MU_10U_18x400.back"
-    assert collection_name(10, 18.0, 400.0, True, True) == "MU_10U_18x400.front-back"
+    assert collection_name(10, 18.0, 400.0, False, False) == "MU_10U_18x400.c0"
+    assert collection_name(10, 18.0, 400.0, True, False) == "MU_10U_18x400.c0.front"
+    assert collection_name(10, 18.0, 400.0, False, True) == "MU_10U_18x400.c0.back"
+    assert collection_name(10, 18.0, 400.0, True, True) == "MU_10U_18x400.c0.front-back"
+
+
+def test_collection_name_with_clearance():
+    assert (
+        collection_name(10, 18.0, 400.0, False, False, 4.0)
+        == "MU_10U_18x400.c4"
+    )
+
+
+def test_collection_name_with_decimal_clearance():
+    assert (
+        collection_name(10, 18.0, 400.0, False, False, 0.5)
+        == "MU_10U_18x400.c0.5"
+    )
 
 
 def test_unique_collection_name():

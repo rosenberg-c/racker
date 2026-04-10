@@ -1,7 +1,15 @@
-def collection_name(units, thickness_mm, depth_mm, front_rails, back_rails):
+def collection_name(
+    units,
+    thickness_mm,
+    depth_mm,
+    front_rails,
+    back_rails,
+    clearance_mm=0.0,
+):
     base = (
         f"MU_{_format_mm(units)}U_"
         f"{_format_mm(thickness_mm)}x{_format_mm(depth_mm)}"
+        f".c{_format_mm(clearance_mm)}"
     )
     if front_rails and back_rails:
         return f"{base}.front-back"

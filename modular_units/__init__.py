@@ -61,6 +61,11 @@ class MU_OT_add_rack(bpy.types.Operator):
         default=18.0,
         min=1.0,
     )
+    unit_margin: bpy.props.FloatProperty(
+        name=ui_text.PROP_UNIT_MARGIN,
+        default=4.0,
+        min=0.0,
+    )
 
     def execute(self, context):
         try:
@@ -81,6 +86,7 @@ class MU_OT_add_rack(bpy.types.Operator):
             context.scene.mu_material,
             thickness,
             depth_mm=depth,
+            unit_margin_mm=self.unit_margin,
         )
 
 
@@ -122,6 +128,13 @@ class MU_PT_panel(bpy.types.Panel):
         material_box = layout.box()
         material_box.prop(context.scene, "mu_material_thickness")
         material_box.prop(context.scene, "mu_material_depth")
+        material_box.prop(context.scene, "mu_unit_margin")
+        note = material_box.row()
+        note.scale_y = 0.8
+        note.enabled = False
+        note_split = note.split(factor=0.08)
+        note_split.label(text="")
+        note_split.label(text="Adds total clearance to rack height")
         layout.separator()
         op = layout.operator(MU_OT_add_rack.bl_idname, text=ui_text.PANEL_CREATE_LABEL)
 
@@ -131,6 +144,7 @@ class MU_PT_panel(bpy.types.Panel):
         op.front_rails = context.scene.mu_front_rails
         op.back_rails = context.scene.mu_back_rails
         op.material_thickness = float(context.scene.mu_material_thickness)
+        op.unit_margin = context.scene.mu_unit_margin
 
 
 class MU_OT_add_faceplate(bpy.types.Operator):
@@ -541,6 +555,11 @@ def register():
         items=_material_depth_items,
         default=0,
     )
+    bpy.types.Scene.mu_unit_margin = bpy.props.FloatProperty(
+        name=ui_text.PROP_UNIT_MARGIN,
+        default=4.0,
+        min=0.0,
+    )
     bpy.types.Scene.mu_faceplate_units = bpy.props.IntProperty(
         name=ui_text.PROP_UNITS,
         default=1,
@@ -589,6 +608,7 @@ def unregister():
     del bpy.types.Scene.mu_units
     del bpy.types.Scene.mu_material_thickness
     del bpy.types.Scene.mu_material_depth
+    del bpy.types.Scene.mu_unit_margin
     del bpy.types.Scene.mu_faceplate_units
     del bpy.types.Scene.mu_faceplate_thickness
     del bpy.types.Scene.mu_faceplate_apply_boolean

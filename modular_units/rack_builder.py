@@ -40,6 +40,7 @@ def build_rack(
     material_selection,
     material_thickness,
     depth_mm=400.0,
+    unit_margin_mm=0.0,
 ):
     config = RackConfig(
         top_bottom_z=material_thickness,
@@ -48,7 +49,8 @@ def build_rack(
         side_y=depth_mm,
     )
     mm_to_m = 0.001
-    total_height = total_height_from_config(units, config)
+    base_height = total_height_from_config(units, config)
+    total_height = base_height + unit_margin_mm
     side_z = total_height
     rail_length = rail_length_from_config(units, config)
 
@@ -102,7 +104,7 @@ def build_rack(
             x_inward,
             y_face,
             y_inward,
-            side_z_center,
+            rail_z_center,
             config,
             rotation_z=rotation_z,
         )
@@ -134,6 +136,7 @@ def build_rack(
     top_z = total_height - (config.top_bottom_z * 0.5)
     bottom_z = config.top_bottom_z * 0.5
     side_z_center = total_height * 0.5
+    rail_z_center = base_height * 0.5
     side_x_offset = (config.top_bottom_x * 0.5) - (config.side_x * 0.5) + config.side_x
     inside_x_face_left, inside_x_face_right = rail_x_faces_from_config(
         config,
@@ -153,7 +156,14 @@ def build_rack(
             material = ensure_material(DEFAULT_MATERIAL_NAME)
 
     collection = ensure_collection(
-        collection_name(units, material_thickness, depth_mm, front_rails, back_rails)
+        collection_name(
+            units,
+            material_thickness,
+            depth_mm,
+            front_rails,
+            back_rails,
+            unit_margin_mm,
+        )
     )
 
     add_box(

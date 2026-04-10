@@ -36,6 +36,9 @@ _reload_modular_units()
 _rack_module = importlib.import_module("modular_units.rack_builder")
 build_rack = _rack_module.build_rack
 RackConfig = _rack_module.RackConfig
+_geometry_module = importlib.import_module("modular_units.geometry")
+collection_name = _geometry_module.collection_name
+rail_hole_zs_from_config = _geometry_module.rail_hole_zs_from_config
 _faceplate_module = importlib.import_module("modular_units.faceplate_builder")
 build_faceplate = _faceplate_module.build_faceplate
 _body_module = importlib.import_module("modular_units.body_builder")
@@ -257,6 +260,16 @@ def _mesh_bounds(obj):
     return (min_x, min_y, min_z), (max_x, max_y, max_z)
 
 
+def _mesh_has_vertex_z(obj, target_z, tolerance=1e-5):
+    mesh = obj.data
+    assert mesh.vertices
+    for vert in mesh.vertices:
+        world = obj.matrix_world @ vert.co
+        if abs(world.z - target_z) < tolerance:
+            return True
+    return False
+
+
 def _bounds_from_center(center, dimensions, rotation_z):
     half_x = dimensions[0] * 0.5
     half_y = dimensions[1] * 0.5
@@ -371,6 +384,7 @@ def main():
         "MU_CREATE_DEFAULT",
         18.0,
         depth_mm=400.0,
+        unit_margin_mm=0.0,
     )
 
     top_obj = bpy.data.objects.get("MU_Top")
@@ -393,6 +407,61 @@ def main():
     assert abs(bottom_obj.rotation_euler.x - 0.0) < 1e-6
     assert abs(bottom_obj.rotation_euler.y - 0.0) < 1e-6
     assert abs(bottom_obj.rotation_euler.z - 0.0) < 1e-6
+
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
+
+    unit_margin = 4.0
+    total_height_margin = total_height + unit_margin
+    top_z_margin = total_height_margin - (config.top_bottom_z * 0.5)
+    bottom_z_margin = config.top_bottom_z * 0.5
+    expected_collection_base = collection_name(
+        units,
+        18.0,
+        400.0,
+        True,
+        True,
+        unit_margin,
+    )
+
+    build_rack(
+        bpy.context,
+        units,
+        30.0,
+        30.0,
+        True,
+        True,
+        "MU_CREATE_DEFAULT",
+        18.0,
+        depth_mm=400.0,
+        unit_margin_mm=unit_margin,
+    )
+
+    top_obj = bpy.data.objects.get("MU_Top")
+    bottom_obj = bpy.data.objects.get("MU_Bottom")
+    rail_front_left = bpy.data.objects.get("MU_Rail_Front_Left")
+    assert top_obj is not None
+    assert bottom_obj is not None
+    assert rail_front_left is not None
+    assert abs(top_obj.location.z - (top_z_margin * 0.001)) < 1e-6
+    assert abs(bottom_obj.location.z - (bottom_z_margin * 0.001)) < 1e-6
+    rail_center = _mesh_bounds_center(rail_front_left)
+    expected_rail_center_z = (total_height * 0.5) * 0.001
+    assert abs(rail_center[2] - expected_rail_center_z) < 1e-6
+    collections = [collection.name for collection in bpy.data.collections]
+    assert any(
+        name == expected_collection_base or name.startswith(f"{expected_collection_base}.")
+        for name in collections
+    )
+    hole_zs = rail_hole_zs_from_config(units, config)
+    for hole_z in hole_zs:
+        assert _mesh_has_vertex_z(rail_front_left, hole_z * 0.001)
+    boolean_modifiers = [
+        modifier
+        for modifier in rail_front_left.modifiers
+        if modifier.type == "BOOLEAN"
+    ]
+    assert boolean_modifiers
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
@@ -421,6 +490,7 @@ def main():
         "MU_CREATE_DEFAULT",
         thin_thickness,
         depth_mm=400.0,
+        unit_margin_mm=0.0,
     )
 
     side_left = bpy.data.objects.get("MU_Side_Left")
