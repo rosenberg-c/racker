@@ -98,6 +98,7 @@ class MU_PT_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = ui_text.PANEL_CATEGORY
+    bl_parent_id = "MU_PT_rack_frame_parent"
 
     def draw(self, context):
         layout = self.layout
@@ -162,6 +163,7 @@ class MU_PT_faceplate_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = ui_text.PANEL_CATEGORY
+    bl_parent_id = "MU_PT_rack_item_parent"
 
     def draw(self, context):
         layout = self.layout
@@ -199,6 +201,28 @@ def _material_depth_items(self, context):
     if not depths:
         depths = [400.0]
     return [(str(value), f"{value} mm", "") for value in depths]
+
+
+class MU_PT_rack_frame_parent(bpy.types.Panel):
+    bl_label = "Rack Frame Building"
+    bl_idname = "MU_PT_rack_frame_parent"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = ui_text.PANEL_CATEGORY
+
+    def draw(self, context):
+        pass
+
+
+class MU_PT_rack_item_parent(bpy.types.Panel):
+    bl_label = "Rack Item Building"
+    bl_idname = "MU_PT_rack_item_parent"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = ui_text.PANEL_CATEGORY
+
+    def draw(self, context):
+        pass
 
 
 def _material_depth_for_thickness(context, thickness: float) -> float:
@@ -267,6 +291,7 @@ class MU_PT_materials_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = ui_text.PANEL_CATEGORY
+    bl_parent_id = "MU_PT_rack_frame_parent"
 
     def draw(self, context):
         layout = self.layout
@@ -322,6 +347,8 @@ classes = (
     MU_UL_materials,
     MU_OT_material_add,
     MU_OT_material_remove,
+    MU_PT_rack_frame_parent,
+    MU_PT_rack_item_parent,
     MU_PT_materials_panel,
     MU_AddonPreferences,
     MU_OT_add_rack,

@@ -205,6 +205,7 @@ class MU_PT_cutter_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = ui_text.PANEL_CATEGORY
+    bl_parent_id = "MU_PT_rack_frame_parent"
 
     def draw(self, context):
         layout = self.layout
