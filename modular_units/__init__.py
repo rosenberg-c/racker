@@ -11,7 +11,8 @@ bl_info = {
 }
 
 ADDON_VERSION = ".".join(str(part) for part in bl_info["version"])
-PANEL_LABEL = f"{ui_text.PANEL_LABEL_BASE} v{ADDON_VERSION}"
+ui_text.PANEL_CATEGORY = f"{ui_text.PANEL_CATEGORY} v{ADDON_VERSION}"
+PANEL_LABEL = ui_text.PANEL_LABEL_BASE
 
 import bpy
 from .cutter import parse_stock_materials_csv
