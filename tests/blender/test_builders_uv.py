@@ -38,6 +38,10 @@ build_rack = _rack_module.build_rack
 RackConfig = _rack_module.RackConfig
 _faceplate_module = importlib.import_module("modular_units.faceplate_builder")
 build_faceplate = _faceplate_module.build_faceplate
+_body_module = importlib.import_module("modular_units.body_builder")
+build_body = _body_module.build_body
+_shelf_module = importlib.import_module("modular_units.shelf_builder")
+build_shelf = _shelf_module.build_shelf
 _rails_module = importlib.import_module("modular_units.rails")
 rail_component_centers_mm = _rails_module.rail_component_centers_mm
 _geometry_module = importlib.import_module("modular_units.geometry")
@@ -231,6 +235,26 @@ def _mesh_bounds_center(obj):
         max_y = max(max_y, world.y)
         max_z = max(max_z, world.z)
     return ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5, (min_z + max_z) * 0.5)
+
+
+def _mesh_bounds(obj):
+    mesh = obj.data
+    assert mesh.vertices
+    min_x = float("inf")
+    min_y = float("inf")
+    min_z = float("inf")
+    max_x = float("-inf")
+    max_y = float("-inf")
+    max_z = float("-inf")
+    for vert in mesh.vertices:
+        world = obj.matrix_world @ vert.co
+        min_x = min(min_x, world.x)
+        min_y = min(min_y, world.y)
+        min_z = min(min_z, world.z)
+        max_x = max(max_x, world.x)
+        max_y = max(max_y, world.y)
+        max_z = max(max_z, world.z)
+    return (min_x, min_y, min_z), (max_x, max_y, max_z)
 
 
 def _bounds_from_center(center, dimensions, rotation_z):
@@ -501,6 +525,24 @@ def main():
     modifiers = [modifier for modifier in faceplate.modifiers if modifier.type == "BOOLEAN"]
     assert modifiers
     assert modifiers[0].object == holes
+
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
+
+    build_body(bpy.context, 1, 438.0, 200.0)
+    body = bpy.data.objects.get("MU_Body")
+    assert body is not None
+
+    build_shelf(bpy.context, 1, 438.0, 200.0, 2.0)
+    shelf = bpy.data.objects.get("MU_Shelf")
+    assert shelf is not None
+    min_bounds, max_bounds = _mesh_bounds(shelf)
+    assert abs(min_bounds[0] - (-0.2415)) < 1e-6
+    assert abs(max_bounds[0] - 0.2415) < 1e-6
+    assert abs(min_bounds[1] - (-0.002)) < 1e-6
+    assert abs(max_bounds[1] - 0.2) < 1e-6
+    assert abs(min_bounds[2] - 0.0) < 1e-6
+    assert abs(max_bounds[2] - 0.04445) < 1e-6
 
 
 if __name__ == "__main__":

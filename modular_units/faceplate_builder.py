@@ -15,6 +15,8 @@ def build_faceplate(
     width_mm=483.0,
     thickness_mm=2.0,
     hole_diameter_mm=7.1,
+    apply_boolean=False,
+    keep_holes=True,
     material=None,
     collection=None,
 ):
@@ -52,7 +54,12 @@ def build_faceplate(
         hole_depth * mm_to_m,
         collection,
     )
-    _add_boolean_difference_modifier(obj, holes_obj)
+    if apply_boolean:
+        _apply_boolean_difference(context, obj, holes_obj)
+        if not keep_holes:
+            bpy.data.objects.remove(holes_obj, do_unlink=True)
+    else:
+        _add_boolean_difference_modifier(obj, holes_obj)
 
     return obj
 
