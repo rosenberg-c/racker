@@ -38,6 +38,8 @@ build_rack = _rack_module.build_rack
 RackConfig = _rack_module.RackConfig
 _geometry_module = importlib.import_module("modular_units.geometry")
 collection_name = _geometry_module.collection_name
+faceplate_hole_zs_mm = _geometry_module.faceplate_hole_zs_mm
+rail_length_from_config = _geometry_module.rail_length_from_config
 rail_hole_zs_from_config = _geometry_module.rail_hole_zs_from_config
 _faceplate_module = importlib.import_module("modular_units.faceplate_builder")
 build_faceplate = _faceplate_module.build_faceplate
@@ -448,6 +450,9 @@ def main():
     rail_center = _mesh_bounds_center(rail_front_left)
     expected_rail_center_z = (total_height * 0.5) * 0.001
     assert abs(rail_center[2] - expected_rail_center_z) < 1e-6
+    min_bounds, max_bounds = _mesh_bounds(rail_front_left)
+    rail_length = rail_length_from_config(units, config)
+    assert abs((max_bounds[2] - min_bounds[2]) - (rail_length * 0.001)) < 1e-6
     collections = [collection.name for collection in bpy.data.collections]
     assert any(
         name == expected_collection_base or name.startswith(f"{expected_collection_base}.")
@@ -462,6 +467,44 @@ def main():
         if modifier.type == "BOOLEAN"
     ]
     assert boolean_modifiers
+
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
+
+    build_rack(
+        bpy.context,
+        units,
+        30.0,
+        30.0,
+        False,
+        True,
+        "MU_CREATE_DEFAULT",
+        18.0,
+        depth_mm=400.0,
+        unit_margin_mm=0.0,
+    )
+
+    front_left = bpy.data.objects.get("MU_Rail_Front_Left")
+    front_right = bpy.data.objects.get("MU_Rail_Front_Right")
+    back_left = bpy.data.objects.get("MU_Rail_Back_Left")
+    back_right = bpy.data.objects.get("MU_Rail_Back_Right")
+    assert front_left is None
+    assert front_right is None
+    assert back_left is not None
+    assert back_right is not None
+    expected_collection_base = collection_name(
+        units,
+        18.0,
+        400.0,
+        False,
+        True,
+        0.0,
+    )
+    collections = [collection.name for collection in bpy.data.collections]
+    assert any(
+        name == expected_collection_base or name.startswith(f"{expected_collection_base}.")
+        for name in collections
+    )
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
@@ -590,6 +633,14 @@ def main():
     holes = bpy.data.objects.get("MU_Faceplate_Holes")
     assert faceplate is not None
     assert holes is not None
+    config = RackConfig()
+    hole_zs = faceplate_hole_zs_mm(
+        faceplate_units,
+        config.unit_height,
+        config.hole_offsets,
+    )
+    for hole_z in hole_zs:
+        assert _mesh_has_vertex_z(holes, hole_z * 0.001)
     assert faceplate.name in faceplate_collection.objects
     assert holes.name in faceplate_collection.objects
     modifiers = [modifier for modifier in faceplate.modifiers if modifier.type == "BOOLEAN"]
@@ -602,6 +653,13 @@ def main():
     build_body(bpy.context, 1, 438.0, 200.0)
     body = bpy.data.objects.get("MU_Body")
     assert body is not None
+    min_bounds, max_bounds = _mesh_bounds(body)
+    assert abs(min_bounds[0] - (-0.219)) < 1e-6
+    assert abs(max_bounds[0] - 0.219) < 1e-6
+    assert abs(min_bounds[1] - 0.0) < 1e-6
+    assert abs(max_bounds[1] - 0.2) < 1e-6
+    assert abs(min_bounds[2] - 0.0) < 1e-6
+    assert abs(max_bounds[2] - 0.04445) < 1e-6
 
     build_shelf(bpy.context, 1, 438.0, 200.0, 2.0)
     shelf = bpy.data.objects.get("MU_Shelf")
@@ -610,6 +668,20 @@ def main():
     assert abs(min_bounds[0] - (-0.2415)) < 1e-6
     assert abs(max_bounds[0] - 0.2415) < 1e-6
     assert abs(min_bounds[1] - (-0.002)) < 1e-6
+    assert abs(max_bounds[1] - 0.2) < 1e-6
+    assert abs(min_bounds[2] - 0.0) < 1e-6
+    assert abs(max_bounds[2] - 0.04445) < 1e-6
+
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
+
+    build_shelf(bpy.context, 1, 438.0, 200.0, 4.0)
+    shelf = bpy.data.objects.get("MU_Shelf")
+    assert shelf is not None
+    min_bounds, max_bounds = _mesh_bounds(shelf)
+    assert abs(min_bounds[0] - (-0.2415)) < 1e-6
+    assert abs(max_bounds[0] - 0.2415) < 1e-6
+    assert abs(min_bounds[1] - (-0.004)) < 1e-6
     assert abs(max_bounds[1] - 0.2) < 1e-6
     assert abs(min_bounds[2] - 0.0) < 1e-6
     assert abs(max_bounds[2] - 0.04445) < 1e-6

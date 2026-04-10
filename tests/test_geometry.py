@@ -52,6 +52,13 @@ def test_collection_name_with_decimal_clearance():
     )
 
 
+def test_collection_name_with_clearance_and_rails():
+    assert (
+        collection_name(10, 18.0, 400.0, True, True, 4.0)
+        == "MU_10U_18x400.c4.front-back"
+    )
+
+
 def test_unique_collection_name():
     existing = {"MU_10", "MU_10.2", "MU_10.3"}
     assert unique_collection_name("MU_10", existing) == "MU_10.4"
