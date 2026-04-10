@@ -17,6 +17,7 @@ PANEL_LABEL = ui_text.PANEL_LABEL_BASE
 import bpy
 from .cutter import parse_stock_materials_csv
 from .cutter_ui import CUTTER_CLASSES, register_cutter_properties, unregister_cutter_properties
+from .body_builder import build_body
 from .faceplate_builder import build_faceplate
 from .rack_builder import build_rack, mu_material_items
 
@@ -90,6 +91,7 @@ class MU_MT_menu(bpy.types.Menu):
         layout = self.layout
         layout.operator(MU_OT_add_rack.bl_idname, text=MU_OT_add_rack.bl_label)
         layout.operator(MU_OT_add_faceplate.bl_idname, text=MU_OT_add_faceplate.bl_label)
+        layout.operator(MU_OT_add_body.bl_idname, text=MU_OT_add_body.bl_label)
 
 
 class MU_PT_panel(bpy.types.Panel):
@@ -146,13 +148,44 @@ class MU_OT_add_faceplate(bpy.types.Operator):
     )
 
     def execute(self, context):
-        material = bpy.data.materials.get(context.scene.mu_material)
         build_faceplate(
             context,
             self.units,
             width_mm=483.0,
             thickness_mm=self.thickness,
-            material=material,
+            material=None,
+        )
+        return {"FINISHED"}
+
+
+class MU_OT_add_body(bpy.types.Operator):
+    bl_idname = "mesh.mu_add_body"
+    bl_label = "Add Body"
+    bl_options = {"REGISTER", "UNDO"}
+
+    units: bpy.props.IntProperty(
+        name=ui_text.PROP_UNITS,
+        default=1,
+        min=1,
+    )
+    width: bpy.props.FloatProperty(
+        name="Width (mm)",
+        default=438.0,
+        min=1.0,
+    )
+    depth: bpy.props.FloatProperty(
+        name="Depth (mm)",
+        default=200.0,
+        min=1.0,
+    )
+
+    def execute(self, context):
+        build_body(
+            context,
+            self.units,
+            self.width,
+            self.depth,
+            material=None,
         )
         return {"FINISHED"}
 
@@ -173,6 +206,26 @@ class MU_PT_faceplate_panel(bpy.types.Panel):
         op = box.operator(MU_OT_add_faceplate.bl_idname, text="Create Faceplate")
         op.units = context.scene.mu_faceplate_units
         op.thickness = context.scene.mu_faceplate_thickness
+
+
+class MU_PT_body_panel(bpy.types.Panel):
+    bl_label = "Body"
+    bl_idname = "MU_PT_body_panel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = ui_text.PANEL_CATEGORY
+    bl_parent_id = "MU_PT_rack_item_parent"
+
+    def draw(self, context):
+        layout = self.layout
+        box = layout.box()
+        box.prop(context.scene, "mu_body_units")
+        box.prop(context.scene, "mu_body_width")
+        box.prop(context.scene, "mu_body_depth")
+        op = box.operator(MU_OT_add_body.bl_idname, text="Create Body")
+        op.units = context.scene.mu_body_units
+        op.width = context.scene.mu_body_width
+        op.depth = context.scene.mu_body_depth
 
 
 def _material_thickness_items(self, context):
@@ -353,9 +406,11 @@ classes = (
     MU_AddonPreferences,
     MU_OT_add_rack,
     MU_OT_add_faceplate,
+    MU_OT_add_body,
     MU_MT_menu,
     MU_PT_panel,
     MU_PT_faceplate_panel,
+    MU_PT_body_panel,
     *CUTTER_CLASSES,
 )
 
@@ -428,6 +483,21 @@ def register():
         default=2.0,
         min=0.1,
     )
+    bpy.types.Scene.mu_body_units = bpy.props.IntProperty(
+        name=ui_text.PROP_UNITS,
+        default=1,
+        min=1,
+    )
+    bpy.types.Scene.mu_body_width = bpy.props.FloatProperty(
+        name="Body Width (mm)",
+        default=438.0,
+        min=1.0,
+    )
+    bpy.types.Scene.mu_body_depth = bpy.props.FloatProperty(
+        name="Body Depth (mm)",
+        default=200.0,
+        min=1.0,
+    )
     bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
 
 
@@ -445,6 +515,9 @@ def unregister():
     del bpy.types.Scene.mu_material_depth
     del bpy.types.Scene.mu_faceplate_units
     del bpy.types.Scene.mu_faceplate_thickness
+    del bpy.types.Scene.mu_body_units
+    del bpy.types.Scene.mu_body_width
+    del bpy.types.Scene.mu_body_depth
     unregister_cutter_properties()
 
 
